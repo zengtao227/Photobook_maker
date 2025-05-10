@@ -1,0 +1,73 @@
+# Synology NAS files
+@eaDir
+*@SynoResource
+*@SynoEAStream
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs and databases
+*.log
+*.sqlite
+bot.pid
+
+# Virtual Environment
+venv/
+env/
+.env/
+shared_env/
+
+# 配置文件中的敏感信息
+**/config.json
+**/secrets.json
+**/*.key
+**/*.pem
+**/.env
+
+# 交易状态和历史数据
+**/trade_state.json
+**/trading_history/
+
+# 缓存文件
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+
+# IDE 配置
+.idea/
+.vscode/
+*.sublime-*
+
+# 临时文件
+**/tmp/
+**/temp/
+**/.tmp/
+**/.temp/
+
+# 特定项目文件
+**/dependency_install.log
+**/.afpDeleted*
