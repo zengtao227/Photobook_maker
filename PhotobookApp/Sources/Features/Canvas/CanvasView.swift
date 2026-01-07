@@ -314,6 +314,18 @@ struct PhotoLayerElement: View {
         .frame(width: layer.frame.width, height: layer.frame.height)
         .contentShape(Rectangle())
         .clipped()
+        // Apply Feathering (Masking)
+        .mask(
+            Group {
+                if layer.feathering > 0 {
+                    Rectangle()
+                        .padding(layer.feathering / 2)
+                        .blur(radius: layer.feathering / 2)
+                } else {
+                    Rectangle()
+                }
+            }
+        )
         // Apply border
         .overlay(
             RoundedRectangle(cornerRadius: 0)
@@ -334,11 +346,20 @@ struct PhotoLayerElement: View {
         .onChange(of: layer.brightness) { _, _ in loadFilteredImage() }
         .onChange(of: layer.contrast) { _, _ in loadFilteredImage() }
         .onChange(of: layer.saturation) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.vignetteIntensity) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.sharpenIntensity) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.temperature) { _, _ in loadFilteredImage() }
     }
     
     private func loadFilteredImage() {
         // Only apply filter if needed
-        guard layer.filterType != .none || layer.brightness != 0 || layer.contrast != 1 || layer.saturation != 1 else {
+        guard layer.filterType != .none || 
+              layer.brightness != 0 || 
+              layer.contrast != 1 || 
+              layer.saturation != 1 ||
+              layer.vignetteIntensity > 0 ||
+              layer.sharpenIntensity > 0 ||
+              layer.temperature != 6500 else {
             filteredImage = nil
             return
         }
@@ -349,7 +370,10 @@ struct PhotoLayerElement: View {
                 filter: layer.filterType,
                 brightness: layer.brightness,
                 contrast: layer.contrast,
-                saturation: layer.saturation
+                saturation: layer.saturation,
+                vignette: layer.vignetteIntensity,
+                sharpen: layer.sharpenIntensity,
+                temperature: layer.temperature
             )
         }
     }
@@ -654,6 +678,97 @@ struct InteractiveLayer: View {
                 }
             }
         }
+        // MARK: - Sticker Layer Rendering
+        else if let stickerLayer = currentLayer as? StickerLayer {
+            let displayFrame = transientFrame ?? stickerLayer.frame
+            let rotation = transientRotation ?? stickerLayer.rotation
+            let isSelected = editorState.selectedLayerId == stickerLayer.id
+            
+            ZStack {
+                StickerLayerElement(layer: stickerLayer)
+                .frame(width: displayFrame.width, height: displayFrame.height)
+                .contentShape(Rectangle())
+                
+                if isSelected {
+                    SelectionBorder(
+                        frame: Binding(
+                            get: { displayFrame },
+                            set: { transientFrame = $0 }
+                        ),
+                        rotation: Binding(
+                            get: { rotation },
+                            set: { transientRotation = $0 }
+                        ),
+                        onCommitFrame: {
+                            if let finalFrame = transientFrame {
+                                editorState.updateLayerFrame(stickerLayer.id, newFrame: finalFrame)
+                                transientFrame = nil
+                            }
+                        },
+                        onCommitRotation: {
+                            if let finalRot = transientRotation {
+                                editorState.updateLayerRotation(stickerLayer.id, newRotation: finalRot)
+                                transientRotation = nil
+                            }
+                        }
+                    )
+                    .frame(width: displayFrame.width, height: displayFrame.height)
+                }
+            }
+            .position(x: displayFrame.midX, y: displayFrame.midY)
+            .rotationEffect(Angle(degrees: rotation), anchor: .center)
+            .zIndex(Double(stickerLayer.zIndex) + (isSelected ? 100 : 0))
+            
+            // Gestures
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        guard isSelected else { return }
+                        if transientFrame == nil { transientFrame = stickerLayer.frame }
+                        
+                        let originFrame = stickerLayer.frame
+                        var newFrame = originFrame
+                        newFrame.origin.x += value.translation.width
+                        newFrame.origin.y += value.translation.height
+                        
+                        transientFrame = newFrame
+                    }
+                    .onEnded { _ in
+                        guard isSelected else { return }
+                        if let finalFrame = transientFrame {
+                            editorState.updateLayerFrame(stickerLayer.id, newFrame: finalFrame)
+                            transientFrame = nil
+                        }
+                    }
+            )
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded {
+                        editorState.selectLayer(stickerLayer.id)
+                    }
+            )
+            .contextMenu {
+                Button {
+                    editorState.moveLayerToFront(stickerLayer.id)
+                } label: {
+                    Label("移到最前", systemImage: "square.3.layers.3d.top.filled")
+                }
+                
+                Button {
+                    editorState.moveLayerToBack(stickerLayer.id)
+                } label: {
+                    Label("移到最后", systemImage: "square.3.layers.3d.bottom.filled")
+                }
+                
+                Divider()
+                
+                Button(role: .destructive) {
+                    editorState.deleteSelectedLayer()
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            }
+        }
     }
 }
 
@@ -835,5 +950,28 @@ struct GridPattern: Shape {
             path.addLine(to: CGPoint(x: rect.width, y: y))
         }
         return path
+    }
+}
+// MARK: - Sticker Layer Element
+
+struct StickerLayerElement: View {
+    let layer: StickerLayer
+    
+    var body: some View {
+        AsyncImage(url: layer.url) { image in
+            image.resizable()
+                .aspectRatio(contentMode: .fit)
+        } placeholder: {
+            ProgressView()
+        }
+        .frame(width: layer.frame.width, height: layer.frame.height)
+        .rotationEffect(.degrees(layer.rotation))
+        .contentShape(Rectangle())
+        .shadow(
+            color: Color.black.opacity(layer.shadowOpacity),
+            radius: layer.shadowRadius,
+            x: 0,
+            y: layer.shadowRadius / 3
+        )
     }
 }

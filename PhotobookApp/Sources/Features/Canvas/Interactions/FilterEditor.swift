@@ -9,9 +9,20 @@ import SwiftUI
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
+//
+//  FilterEditor.swift
+//  PhotobookApp
+//
+//  滤镜编辑器 - 提供预设滤镜和参数调整
+//
+
+import SwiftUI
+import CoreImage
+import CoreImage.CIFilterBuiltins
+
 struct FilterEditor: View {
     let layer: PhotoLayer
-    let onSave: (PhotoLayer.FilterType, Double, Double, Double) -> Void
+    let onSave: (PhotoLayer.FilterType, Double, Double, Double, Double, Double, Double) -> Void
     let onCancel: () -> Void
     
     @State private var selectedFilter: PhotoLayer.FilterType
@@ -19,9 +30,16 @@ struct FilterEditor: View {
     @State private var contrast: Double
     @State private var saturation: Double
     
+    // Advanced params
+    @State private var vignetteIntensity: Double
+    @State private var sharpenIntensity: Double
+    @State private var temperature: Double
+    
     @State private var previewImage: NSImage?
     
-    init(layer: PhotoLayer, onSave: @escaping (PhotoLayer.FilterType, Double, Double, Double) -> Void, onCancel: @escaping () -> Void) {
+    init(layer: PhotoLayer, 
+         onSave: @escaping (PhotoLayer.FilterType, Double, Double, Double, Double, Double, Double) -> Void, 
+         onCancel: @escaping () -> Void) {
         self.layer = layer
         self.onSave = onSave
         self.onCancel = onCancel
@@ -29,6 +47,9 @@ struct FilterEditor: View {
         self._brightness = State(initialValue: layer.brightness)
         self._contrast = State(initialValue: layer.contrast)
         self._saturation = State(initialValue: layer.saturation)
+        self._vignetteIntensity = State(initialValue: layer.vignetteIntensity)
+        self._sharpenIntensity = State(initialValue: layer.sharpenIntensity)
+        self._temperature = State(initialValue: layer.temperature)
     }
     
     var body: some View {
@@ -40,7 +61,7 @@ struct FilterEditor: View {
                 Spacer()
                 Button("取消") { onCancel() }
                 Button("应用") {
-                    onSave(selectedFilter, brightness, contrast, saturation)
+                    onSave(selectedFilter, brightness, contrast, saturation, vignetteIntensity, sharpenIntensity, temperature)
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -92,66 +113,59 @@ struct FilterEditor: View {
                         
                         Divider()
                         
-                        // Adjustments
+                        // Basic Adjustments
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("参数调整")
+                            Text("基础调整")
                                 .font(.subheadline.bold())
                             
                             // Brightness
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("亮度")
-                                    Spacer()
-                                    Text(String(format: "%.0f%%", brightness * 100))
-                                        .foregroundColor(.secondary)
-                                }
-                                Slider(value: $brightness, in: -1...1) { _ in
-                                    updatePreview()
-                                }
-                            }
+                            SliderControl(label: "亮度", value: $brightness, range: -1...1, format: "%.0f%%", multiplier: 100) { updatePreview() }
                             
                             // Contrast
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("对比度")
-                                    Spacer()
-                                    Text(String(format: "%.0f%%", contrast * 100))
-                                        .foregroundColor(.secondary)
-                                }
-                                Slider(value: $contrast, in: 0.5...2) { _ in
-                                    updatePreview()
-                                }
-                            }
+                            SliderControl(label: "对比度", value: $contrast, range: 0.5...2, format: "%.0f%%", multiplier: 100) { updatePreview() }
                             
                             // Saturation
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("饱和度")
-                                    Spacer()
-                                    Text(String(format: "%.0f%%", saturation * 100))
-                                        .foregroundColor(.secondary)
-                                }
-                                Slider(value: $saturation, in: 0...2) { _ in
-                                    updatePreview()
-                                }
-                            }
-                            
-                            // Reset Button
-                            Button("重置调整") {
-                                brightness = 0
-                                contrast = 1
-                                saturation = 1
-                                updatePreview()
-                            }
-                            .foregroundColor(.orange)
+                            SliderControl(label: "饱和度", value: $saturation, range: 0...2, format: "%.0f%%", multiplier: 100) { updatePreview() }
                         }
+                        
+                        Divider()
+                        
+                        // Advanced Adjustments
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("高级调整")
+                                .font(.subheadline.bold())
+                            
+                            // Vignette
+                            SliderControl(label: "暗角", value: $vignetteIntensity, range: 0...2, format: "%.1f") { updatePreview() }
+                            
+                            // Sharpen
+                            SliderControl(label: "锐化", value: $sharpenIntensity, range: 0...2, format: "%.1f") { updatePreview() }
+                            
+                            // Temperature
+                            SliderControl(label: "色温", value: $temperature, range: 3000...9000, format: "%.0f K") { updatePreview() }
+                        }
+                        
+                        Divider()
+                        
+                        // Reset Button
+                        Button("重置所有调整") {
+                            brightness = 0
+                            contrast = 1
+                            saturation = 1
+                            vignetteIntensity = 0
+                            sharpenIntensity = 0
+                            temperature = 6500
+                            updatePreview()
+                        }
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity)
                     }
                     .padding()
                 }
-                .frame(width: 250)
+                .frame(width: 260)
             }
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 700, minHeight: 600)
         .onAppear {
             updatePreview()
         }
@@ -164,8 +178,35 @@ struct FilterEditor: View {
                 filter: selectedFilter,
                 brightness: brightness,
                 contrast: contrast,
-                saturation: saturation
+                saturation: saturation,
+                vignette: vignetteIntensity,
+                sharpen: sharpenIntensity,
+                temperature: temperature
             )
+        }
+    }
+}
+
+// Helper View for Sliders
+struct SliderControl: View {
+    let label: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let format: String
+    var multiplier: Double = 1.0
+    let onCommit: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label)
+                Spacer()
+                Text(String(format: format, value * multiplier))
+                    .foregroundColor(.secondary)
+            }
+            Slider(value: $value, in: range) { _ in
+                onCommit()
+            }
         }
     }
 }
@@ -216,7 +257,10 @@ func generateFilteredImage(
     filter: PhotoLayer.FilterType,
     brightness: Double,
     contrast: Double,
-    saturation: Double
+    saturation: Double,
+    vignette: Double = 0,
+    sharpen: Double = 0,
+    temperature: Double = 6500
 ) async -> NSImage? {
     return await withCheckedContinuation { continuation in
         DispatchQueue.global(qos: .userInitiated).async {
@@ -227,14 +271,14 @@ func generateFilteredImage(
             
             var outputImage = ciImage
             
-            // Apply preset filter
+            // 1. Preset filter
             if filter != .none {
                 if let filteredImage = applyPresetFilter(to: outputImage, filter: filter) {
                     outputImage = filteredImage
                 }
             }
             
-            // Apply adjustments
+            // 2. Basic Adjustments (Color Controls)
             if brightness != 0 || contrast != 1 || saturation != 1 {
                 let colorControls = CIFilter.colorControls()
                 colorControls.inputImage = outputImage
@@ -243,6 +287,41 @@ func generateFilteredImage(
                 colorControls.saturation = Float(saturation)
                 
                 if let adjusted = colorControls.outputImage {
+                    outputImage = adjusted
+                }
+            }
+            
+            // 3. Advanced: Temperature
+            if temperature != 6500 {
+                let tempFilter = CIFilter.temperatureAndTint()
+                tempFilter.inputImage = outputImage
+                tempFilter.neutral = CIVector(x: CGFloat(temperature), y: 0)
+                tempFilter.targetNeutral = CIVector(x: 6500, y: 0) // Standard white point
+                
+                if let adjusted = tempFilter.outputImage {
+                    outputImage = adjusted
+                }
+            }
+            
+            // 4. Advanced: Sharpen
+            if sharpen > 0 {
+                let sharpenFilter = CIFilter.sharpenLuminance()
+                sharpenFilter.inputImage = outputImage
+                sharpenFilter.sharpness = Float(sharpen)
+                
+                if let adjusted = sharpenFilter.outputImage {
+                    outputImage = adjusted
+                }
+            }
+            
+            // 5. Advanced: Vignette
+            if vignette > 0 {
+                let vignetteFilter = CIFilter.vignette()
+                vignetteFilter.inputImage = outputImage
+                vignetteFilter.intensity = Float(vignette)
+                vignetteFilter.radius = Float(1.0)
+                
+                if let adjusted = vignetteFilter.outputImage {
                     outputImage = adjusted
                 }
             }

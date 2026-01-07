@@ -48,14 +48,21 @@ public struct PhotoLayer: LayerProtocol {
     public var cropRotation: Double = 0.0 // Corrective rotation inside editor
     
     // Filter properties (Added for Phase 2.1)
+    // Filter properties (Added for Phase 2.1)
     public var filterType: FilterType = .none
     public var brightness: Double = 0.0 // -1 to 1
     public var contrast: Double = 1.0 // 0.5 to 2
     public var saturation: Double = 1.0 // 0 to 2
     
+    // Advanced Filter properties (Added for Phase 2.2)
+    public var vignetteIntensity: Double = 0.0 // 0 to 2
+    public var sharpenIntensity: Double = 0.0 // 0 to 2
+    public var temperature: Double = 6500 // 3000 to 9000 (Color Temperature)
+    
     // Border & Shadow properties (Added for Phase 2.1)
     public var borderWidth: Double = 0.0 // 0 to 20
     public var borderColorHex: String = "#FFFFFF" // Hex color for serialization
+    public var feathering: Double = 0.0 // 0 to 50 (Edge Feathering)
     public var shadowRadius: Double = 0.0 // 0 to 30
     public var shadowOpacity: Double = 0.5 // 0 to 1
     
@@ -123,6 +130,29 @@ public struct TextLayer: LayerProtocol {
     }
 }
 
+
+
+public struct StickerLayer: LayerProtocol {
+    public let id: LayerID
+    public var type: LayerType = .sticker
+    public var frame: CGRect
+    public var rotation: Double = 0
+    public var zIndex: Int = 0
+    public var isLocked: Bool = false
+    
+    public var url: URL
+    
+    // Simple style for stickers
+    public var shadowRadius: Double = 0.0
+    public var shadowOpacity: Double = 0.5
+    
+    public init(url: URL, frame: CGRect) {
+        self.id = LayerID()
+        self.url = url
+        self.frame = frame
+    }
+}
+
 // MARK: - Page Model
 
 public struct PageModel: Identifiable, Codable {
@@ -160,7 +190,7 @@ public struct AnyLayer: Identifiable, Codable {
         case .text:
             self.layer = try container.decode(TextLayer.self, forKey: .data)
         case .sticker:
-            throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Sticker not implemented")
+            self.layer = try container.decode(StickerLayer.self, forKey: .data)
         }
     }
     
@@ -172,6 +202,8 @@ public struct AnyLayer: Identifiable, Codable {
             try container.encode(photoLayer, forKey: .data)
         } else if let textLayer = layer as? TextLayer {
             try container.encode(textLayer, forKey: .data)
+        } else if let stickerLayer = layer as? StickerLayer {
+            try container.encode(stickerLayer, forKey: .data)
         }
     }
 }

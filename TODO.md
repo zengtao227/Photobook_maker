@@ -64,6 +64,22 @@
     - [x] 双击进入内联编辑模式
     - [x] Inspector 面板实时属性调整
 
+### 2.3 细节完善与新特性
+- [x] **高级滤镜增强**
+    - [x] 暗角 (Vignette)
+    - [x] 锐化 (Sharpen)
+    - [x] 色温 (Temperature)
+- [x] **边缘羽化 (Feathering)**
+    - [x] Inspector 面板控制
+    - [x] Canvas 实时渲染 (Soft Mask)
+- [x] **字体优化**
+    - [x] 动态加载系统字体
+    - [x] 中文字体优先展示
+- [x] **贴纸系统 (Stickers)**
+    - [x] StickerLayer 数据模型
+    - [x] 导入自定义图片作为贴纸
+    - [x] 贴纸渲染与交互 (移动/缩放/旋转)
+
 ---
 
 ## 📅 Phase 3: 导出与生产

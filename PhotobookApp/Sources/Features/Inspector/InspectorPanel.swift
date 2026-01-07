@@ -5,6 +5,9 @@ struct InspectorPanel: View {
     @Environment(BookContext.self) private var bookContext
     @Environment(EditorState.self) private var editorState
     
+    @State private var isImportingSticker = false
+    @State private var stickerTargetIsLeft = true
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -64,10 +67,55 @@ struct InspectorPanel: View {
                 .buttonStyle(.bordered)
                 .help("在右页添加文字")
             }
+            
+            HStack(spacing: 12) {
+                // Import Sticker Button (Left)
+                Button {
+                    stickerTargetIsLeft = true
+                    isImportingSticker = true
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "star")
+                            .font(.title2)
+                        Text("左页贴纸")
+                            .font(.caption)
+                    }
+                    .frame(width: 70, height: 60)
+                }
+                .buttonStyle(.bordered)
+                .help("导入图片作为贴纸到左页")
+                
+                // Import Sticker Button (Right)
+                Button {
+                    stickerTargetIsLeft = false
+                    isImportingSticker = true
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "star")
+                            .font(.title2)
+                        Text("右页贴纸")
+                            .font(.caption)
+                    }
+                    .frame(width: 70, height: 60)
+                }
+                .buttonStyle(.bordered)
+                .help("导入图片作为贴纸到右页")
+            }
         }
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
         .cornerRadius(themeManager.theme.cornerRadius)
+        .fileImporter(isPresented: $isImportingSticker, allowedContentTypes: [.image]) { result in
+            switch result {
+            case .success(let url):
+                // Security scoped resource access
+                guard url.startAccessingSecurityScopedResource() else { return }
+                defer { url.stopAccessingSecurityScopedResource() }
+                editorState.addStickerLayer(url: url, isLeftPage: stickerTargetIsLeft)
+            case .failure(let error):
+                print("Import sticker failed: \(error.localizedDescription)")
+            }
+        }
     }
     
     // MARK: - Book Settings Section
@@ -150,6 +198,25 @@ struct InspectorPanel: View {
                     ColorPicker("", selection: bindingForBorderColor(layer))
                         .labelsHidden()
                 }
+            }
+            
+            Divider()
+            
+            // Feathering Settings
+            VStack(alignment: .leading, spacing: 8) {
+                Text("边缘羽化")
+                    .font(.subheadline.bold())
+                    .foregroundColor(themeManager.theme.textColor)
+                
+                HStack {
+                    Text("羽化程度")
+                        .font(.caption)
+                    Spacer()
+                    Text(String(format: "%.0f px", layer.feathering))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: bindingForFeathering(layer), in: 0...50)
             }
             
             Divider()
@@ -360,6 +427,13 @@ struct InspectorPanel: View {
         Binding(
             get: { Color(hex: layer.borderColorHex) ?? .white },
             set: { editorState.updateLayerBorder(id: layer.id, borderWidth: layer.borderWidth, borderColorHex: $0.toHex()) }
+        )
+    }
+    
+    private func bindingForFeathering(_ layer: PhotoLayer) -> Binding<Double> {
+        Binding(
+            get: { layer.feathering },
+            set: { editorState.updateLayerFeathering(id: layer.id, feathering: $0) }
         )
     }
     

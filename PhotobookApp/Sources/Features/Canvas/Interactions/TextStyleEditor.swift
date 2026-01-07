@@ -20,19 +20,30 @@ struct TextStyleEditor: View {
     @State private var isItalic: Bool
     @State private var alignment: TextLayer.TextAlignment
     
-    // Available fonts
-    private let availableFonts = [
-        "Helvetica Neue",
-        "Arial",
-        "Times New Roman",
-        "Georgia",
-        "Courier New",
-        "Verdana",
-        "Futura",
-        "Avenir",
-        "Optima",
-        "Palatino"
-    ]
+    // Available fonts (Dynamically loaded)
+    @State private var availableFonts: [String] = []
+    
+    // Core Logic to fetch fonts
+    private func loadFonts() {
+        let manager = NSFontManager.shared
+        let systemFonts = manager.availableFonts
+        
+        // Priority fonts (Chinese/Japanese/Common)
+        let priorityFonts = [
+            "PingFang SC", "PingFang TC", "PingFang HK",
+            "Heiti SC", "Heiti TC",
+            "Songti SC", "Songti TC",
+            "Kaiti SC", "Kaiti TC",
+            "Hiragino Sans", "Hiragino Sans GB",
+            "Helvetica Neue", "Arial", "Times New Roman"
+        ]
+        
+        var sortedFonts = priorityFonts.filter { systemFonts.contains($0) }
+        let otherFonts = systemFonts.filter { !priorityFonts.contains($0) }.sorted()
+        sortedFonts.append(contentsOf: otherFonts)
+        
+        self.availableFonts = sortedFonts
+    }
     
     init(layer: TextLayer, 
          onSave: @escaping (String, Double, String, String, Bool, Bool, TextLayer.TextAlignment) -> Void,
@@ -168,6 +179,9 @@ struct TextStyleEditor: View {
             }
         }
         .frame(minWidth: 600, minHeight: 400)
+        .onAppear {
+            loadFonts()
+        }
     }
     
     private var swiftUIAlignment: SwiftUI.TextAlignment {

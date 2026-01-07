@@ -56,12 +56,16 @@ public class EditorState {
         filteringLayerId = nil
     }
     
-    func updateLayerFilter(id: LayerID, filterType: PhotoLayer.FilterType, brightness: Double, contrast: Double, saturation: Double) {
+    func updateLayerFilter(id: LayerID, filterType: PhotoLayer.FilterType, brightness: Double, contrast: Double, saturation: Double,
+                          vignette: Double = 0, sharpen: Double = 0, temperature: Double = 6500) {
         if var layer = findLayer(id) as? PhotoLayer {
             layer.filterType = filterType
             layer.brightness = brightness
             layer.contrast = contrast
             layer.saturation = saturation
+            layer.vignetteIntensity = vignette
+            layer.sharpenIntensity = sharpen
+            layer.temperature = temperature
             updateLayer(layer)
         }
     }
@@ -72,6 +76,13 @@ public class EditorState {
         if var layer = findLayer(id) as? PhotoLayer {
             layer.borderWidth = borderWidth
             layer.borderColorHex = borderColorHex
+            updateLayer(layer)
+        }
+    }
+    
+    func updateLayerFeathering(id: LayerID, feathering: Double) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.feathering = feathering
             updateLayer(layer)
         }
     }
@@ -108,6 +119,27 @@ public class EditorState {
     }
     
     // MARK: - Layer Operations
+    
+    func addStickerLayer(url: URL, isLeftPage: Bool, center: CGPoint? = nil) {
+        let size = CGSize(width: 150, height: 150)
+        
+        let position: CGPoint
+        if let center = center {
+            position = CGPoint(x: center.x - size.width/2, y: center.y - size.height/2)
+        } else {
+            // Randomize slightly
+            let offsetX = CGFloat.random(in: 50...150)
+            let offsetY = CGFloat.random(in: 50...150)
+            
+            // Note: In a real app we would get page size from somewhere.
+            // For now assuming A4ish.
+            position = CGPoint(x: offsetX, y: offsetY)
+        }
+        
+        let frame = CGRect(origin: position, size: size)
+        let sticker = StickerLayer(url: url, frame: frame)
+        addLayer(sticker, toLeftPage: isLeftPage)
+    }
     
     func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil) {
         // Calculate initial size based on image aspect ratio
