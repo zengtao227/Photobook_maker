@@ -116,6 +116,18 @@ public class EditorState {
         
         lastModified = Date()
         updateCounter += 1
+        updateCounter += 1
+    }
+    
+    private func addLayer(_ layer: any LayerProtocol, toLeftPage: Bool) {
+        if toLeftPage {
+            leftPage.layers.append(AnyLayer(layer))
+        } else {
+            rightPage.layers.append(AnyLayer(layer))
+        }
+        selectedLayerId = layer.id
+        lastModified = Date()
+        updateCounter += 1
     }
     
     // MARK: - Layer Operations
@@ -277,6 +289,9 @@ public class EditorState {
             } else if var textLayer = leftPage.layers[idx].layer as? TextLayer {
                 textLayer.frame = newFrame
                 leftPage.layers[idx] = AnyLayer(textLayer)
+            } else if var stickerLayer = leftPage.layers[idx].layer as? StickerLayer {
+                stickerLayer.frame = newFrame
+                leftPage.layers[idx] = AnyLayer(stickerLayer)
             }
         }
         // Right page
@@ -287,6 +302,9 @@ public class EditorState {
             } else if var textLayer = rightPage.layers[idx].layer as? TextLayer {
                 textLayer.frame = newFrame
                 rightPage.layers[idx] = AnyLayer(textLayer)
+            } else if var stickerLayer = rightPage.layers[idx].layer as? StickerLayer {
+                stickerLayer.frame = newFrame
+                rightPage.layers[idx] = AnyLayer(stickerLayer)
             }
         }
         lastModified = Date() // Trigger Save
@@ -304,6 +322,9 @@ public class EditorState {
             } else if var textLayer = leftPage.layers[idx].layer as? TextLayer {
                 textLayer.rotation = newRotation
                 leftPage.layers[idx] = AnyLayer(textLayer)
+            } else if var stickerLayer = leftPage.layers[idx].layer as? StickerLayer {
+                stickerLayer.rotation = newRotation
+                leftPage.layers[idx] = AnyLayer(stickerLayer)
             }
         }
         // Right page
@@ -314,6 +335,9 @@ public class EditorState {
             } else if var textLayer = rightPage.layers[idx].layer as? TextLayer {
                 textLayer.rotation = newRotation
                 rightPage.layers[idx] = AnyLayer(textLayer)
+            } else if var stickerLayer = rightPage.layers[idx].layer as? StickerLayer {
+                stickerLayer.rotation = newRotation
+                rightPage.layers[idx] = AnyLayer(stickerLayer)
             }
         }
         lastModified = Date()
