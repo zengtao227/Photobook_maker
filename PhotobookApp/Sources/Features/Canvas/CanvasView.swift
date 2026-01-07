@@ -215,13 +215,16 @@ struct BookPage: View {
                 if let photoLayer = wrapper.layer as? PhotoLayer {
                     FilterEditor(
                         layer: photoLayer,
-                        onSave: { filterType, brightness, contrast, saturation in
+                        onSave: { filterType, brightness, contrast, saturation, vignette, sharpen, temperature in
                             editorState.updateLayerFilter(
                                 id: photoLayer.id,
                                 filterType: filterType,
                                 brightness: brightness,
                                 contrast: contrast,
-                                saturation: saturation
+                                saturation: saturation,
+                                vignette: vignette,
+                                sharpen: sharpen,
+                                temperature: temperature
                             )
                             editorState.endFiltering()
                         },
