@@ -121,6 +121,16 @@ struct BookPage: View {
                         .zIndex(1000) // Force layers to be on top
                 }
                 
+                // MARK: - Bleed Guide Overlay (Phase 3)
+                if editorState.showBleedGuide {
+                    BleedGuideOverlay(
+                        bleedPoints: editorState.bleedPoints,
+                        pageSize: geometry.size
+                    )
+                    .allowsHitTesting(false)
+                    .zIndex(2000) // On top of everything
+                }
+                
                 // MARK: - Tap to Deselect (Transparent overlay)
                 Color.clear
                     .contentShape(Rectangle())
@@ -992,5 +1002,67 @@ struct StickerLayerElement: View {
             x: 0,
             y: layer.shadowRadius / 3
         )
+    }
+}
+
+// MARK: - Bleed Guide Overlay (Phase 3)
+
+/// Displays a red dashed line indicating the print bleed/trim area
+struct BleedGuideOverlay: View {
+    let bleedPoints: CGFloat
+    let pageSize: CGSize
+    
+    var body: some View {
+        ZStack {
+            // Outer edge (bleed line - will be trimmed)
+            Rectangle()
+                .stroke(
+                    Color.red.opacity(0.6),
+                    style: StrokeStyle(lineWidth: 1, dash: [6, 4])
+                )
+                .frame(width: pageSize.width, height: pageSize.height)
+            
+            // Inner edge (safe zone - content should stay inside)
+            Rectangle()
+                .stroke(
+                    Color.red.opacity(0.8),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [8, 4])
+                )
+                .frame(
+                    width: pageSize.width - bleedPoints * 2,
+                    height: pageSize.height - bleedPoints * 2
+                )
+            
+            // Corner labels
+            VStack {
+                HStack {
+                    BleedLabel(text: "裁切线 (3mm)")
+                    Spacer()
+                }
+                Spacer()
+                HStack {
+                    Spacer()
+                    BleedLabel(text: "安全区域")
+                }
+                .padding(.bottom, bleedPoints + 4)
+                .padding(.trailing, bleedPoints + 4)
+            }
+            .padding(4)
+        }
+    }
+}
+
+/// Small label for bleed guide annotations
+struct BleedLabel: View {
+    let text: String
+    
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundColor(.red)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.white.opacity(0.85))
+            .cornerRadius(3)
     }
 }

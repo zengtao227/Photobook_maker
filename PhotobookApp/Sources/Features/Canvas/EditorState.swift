@@ -17,10 +17,100 @@ public class EditorState {
     public var lastModified: Date = Date()
     public var updateCounter: Int = 0 // Force UI refresh
     
+    // MARK: - Bleed Guide (Phase 3)
+    
+    /// Whether to show the bleed guide overlay on canvas
+    public var showBleedGuide: Bool = false
+    
+    /// Bleed margin in millimeters (3mm is print industry standard)
+    public var bleedMM: CGFloat = 3.0
+    
+    /// Bleed in points (for rendering)
+    public var bleedPoints: CGFloat {
+        bleedMM * 2.83465 // 1mm ≈ 2.83465 points
+    }
+    
+    // MARK: - Multi-Spread Management (Phase 3)
+    
+    /// All spreads in the book (each spread = left + right page)
+    public var allSpreads: [(left: PageModel, right: PageModel)] = []
+    
+    /// Current spread index (0-based)
+    public var currentSpreadIndex: Int = 0
+    
+    /// Total number of spreads
+    public var spreadCount: Int {
+        allSpreads.count
+    }
+    
+    /// Navigate to a specific spread, saving current changes first
+    public func navigateToSpread(_ index: Int) {
+        guard index >= 0 && index < allSpreads.count else { return }
+        
+        // Save current spread before switching
+        saveCurrentSpread()
+        
+        // Load new spread
+        currentSpreadIndex = index
+        loadCurrentSpread()
+        
+        // Clear selection when switching pages
+        selectedLayerId = nil
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
+    /// Save current left/right pages back to allSpreads
+    public func saveCurrentSpread() {
+        guard currentSpreadIndex < allSpreads.count else { return }
+        allSpreads[currentSpreadIndex] = (left: leftPage, right: rightPage)
+    }
+    
+    /// Load spread from allSpreads into current left/right pages
+    private func loadCurrentSpread() {
+        guard currentSpreadIndex < allSpreads.count else { return }
+        let spread = allSpreads[currentSpreadIndex]
+        leftPage = spread.left
+        rightPage = spread.right
+    }
+    
+    /// Add a new spread to the book
+    public func addNewSpread() {
+        // Save current first
+        saveCurrentSpread()
+        
+        // Create new spread
+        let newLeft = PageModel(pageNumber: allSpreads.count * 2 + 2)
+        let newRight = PageModel(pageNumber: allSpreads.count * 2 + 3)
+        allSpreads.append((left: newLeft, right: newRight))
+        
+        // Navigate to new spread
+        navigateToSpread(allSpreads.count - 1)
+    }
+    
+    /// Delete a spread from the book
+    public func deleteSpread(at index: Int) {
+        guard allSpreads.count > 1, index >= 0 && index < allSpreads.count else { return }
+        
+        allSpreads.remove(at: index)
+        
+        // Adjust current index if needed
+        if currentSpreadIndex >= allSpreads.count {
+            currentSpreadIndex = allSpreads.count - 1
+        }
+        
+        loadCurrentSpread()
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
     public init() {
         // Initialize with blank pages
         self.leftPage = PageModel(pageNumber: 2)
         self.rightPage = PageModel(pageNumber: 3)
+        
+        // Initialize allSpreads with the first spread
+        self.allSpreads = [(left: leftPage, right: rightPage)]
     }
     
     // MARK: - Crop Operations
