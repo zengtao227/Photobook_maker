@@ -68,6 +68,12 @@
     "swiftmodule": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay~partial.swiftmodule",
     "swift-dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay.swiftdeps"
   },
+  "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/TextStyleEditor.swift": {
+    "dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/TextStyleEditor.d",
+    "object": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/TextStyleEditor.swift.o",
+    "swiftmodule": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/TextStyleEditor~partial.swiftmodule",
+    "swift-dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/TextStyleEditor.swiftdeps"
+  },
   "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Common/MacTextField.swift": {
     "dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/MacTextField.d",
     "object": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/MacTextField.swift.o",

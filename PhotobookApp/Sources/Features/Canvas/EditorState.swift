@@ -147,8 +147,60 @@ public class EditorState {
         }
         
         // Auto-select the new layer
+        // Auto-select the new layer
         selectedLayerId = newLayer.id
         lastModified = Date() // Trigger Save
+    }
+    
+    // MARK: - Text Layer Operations
+    
+    func addTextLayer(text: String = "双击编辑文字", isLeftPage: Bool, center: CGPoint? = nil) {
+        let position = center ?? CGPoint(x: 200, y: 150)
+        let frame = CGRect(x: position.x - 100, y: position.y - 20, width: 200, height: 40)
+        
+        let newLayer = TextLayer(text: text, frame: frame)
+        
+        if isLeftPage {
+            leftPage.layers.append(AnyLayer(newLayer))
+        } else {
+            rightPage.layers.append(AnyLayer(newLayer))
+        }
+        
+        selectedLayerId = newLayer.id
+        lastModified = Date()
+    }
+    
+    func updateTextContent(id: LayerID, text: String) {
+        if var layer = findLayer(id) as? TextLayer {
+            layer.text = text
+            updateLayer(layer)
+        }
+    }
+    
+    func updateTextStyle(id: LayerID, fontSize: Double? = nil, fontName: String? = nil, colorHex: String? = nil, 
+                         isBold: Bool? = nil, isItalic: Bool? = nil, alignment: TextLayer.TextAlignment? = nil,
+                         backgroundColorHex: String? = nil) {
+        if var layer = findLayer(id) as? TextLayer {
+            if let fontSize = fontSize { layer.fontSize = fontSize }
+            if let fontName = fontName { layer.fontName = fontName }
+            if let colorHex = colorHex { layer.colorHex = colorHex }
+            if let isBold = isBold { layer.isBold = isBold }
+            if let isItalic = isItalic { layer.isItalic = isItalic }
+            if let alignment = alignment { layer.alignment = alignment }
+            if let backgroundColorHex = backgroundColorHex { layer.backgroundColorHex = backgroundColorHex }
+            updateLayer(layer)
+        }
+    }
+    
+    // Text editing mode
+    var editingTextLayerId: LayerID? = nil
+    
+    func startTextEditing(_ id: LayerID) {
+        editingTextLayerId = id
+    }
+    
+    func endTextEditing() {
+        editingTextLayerId = nil
     }
     
     func selectLayer(_ id: LayerID) {

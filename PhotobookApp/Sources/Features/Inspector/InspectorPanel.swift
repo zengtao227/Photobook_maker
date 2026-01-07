@@ -8,17 +8,66 @@ struct InspectorPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // Quick Tools
+                toolsSection
+                
                 // Section: Book Settings
                 bookSettingsSection
                 
                 // Section: Selected Layer (if any)
-                if let selectedLayer = selectedPhotoLayer {
-                    layerSettingsSection(for: selectedLayer)
+                if let selectedPhotoLayer = selectedPhotoLayer {
+                    photoLayerSettingsSection(for: selectedPhotoLayer)
+                } else if let selectedTextLayer = selectedTextLayer {
+                    textLayerSettingsSection(for: selectedTextLayer)
                 }
             }
             .padding()
         }
         .animation(.easeInOut, value: bookContext.pageSize)
+    }
+    
+    // MARK: - Tools Section
+    
+    private var toolsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("工具")
+                .font(.headline)
+                .foregroundColor(themeManager.theme.textColor)
+            
+            HStack(spacing: 12) {
+                // Add Text Button
+                Button {
+                    editorState.addTextLayer(isLeftPage: true)
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "textformat")
+                            .font(.title2)
+                        Text("添加文字")
+                            .font(.caption)
+                    }
+                    .frame(width: 70, height: 60)
+                }
+                .buttonStyle(.bordered)
+                .help("在左页添加文字")
+                
+                Button {
+                    editorState.addTextLayer(isLeftPage: false)
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "textformat")
+                            .font(.title2)
+                        Text("右页文字")
+                            .font(.caption)
+                    }
+                    .frame(width: 70, height: 60)
+                }
+                .buttonStyle(.bordered)
+                .help("在右页添加文字")
+            }
+        }
+        .padding()
+        .background(themeManager.theme.backgroundColor.opacity(0.5))
+        .cornerRadius(themeManager.theme.cornerRadius)
     }
     
     // MARK: - Book Settings Section
@@ -68,9 +117,9 @@ struct InspectorPanel: View {
         .cornerRadius(themeManager.theme.cornerRadius)
     }
     
-    // MARK: - Layer Settings Section
+    // MARK: - Photo Layer Settings Section
     
-    private func layerSettingsSection(for layer: PhotoLayer) -> some View {
+    private func photoLayerSettingsSection(for layer: PhotoLayer) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("图层设置")
                 .font(.headline)
@@ -154,6 +203,84 @@ struct InspectorPanel: View {
         .cornerRadius(themeManager.theme.cornerRadius)
     }
     
+    // MARK: - Text Layer Settings Section
+    
+    private func textLayerSettingsSection(for layer: TextLayer) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("文字设置")
+                .font(.headline)
+                .foregroundColor(themeManager.theme.textColor)
+            
+            // Text Content
+            VStack(alignment: .leading, spacing: 4) {
+                Text("内容")
+                    .font(.caption)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
+                TextField("文字内容", text: bindingForTextContent(layer))
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            Divider()
+            
+            // Font Style
+            VStack(alignment: .leading, spacing: 8) {
+                Text("样式")
+                    .font(.subheadline.bold())
+                
+                HStack {
+                    Text("字号")
+                        .font(.caption)
+                    Spacer()
+                    Text("\(Int(layer.fontSize)) pt")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: bindingForFontSize(layer), in: 12...72, step: 1)
+                
+                HStack(spacing: 12) {
+                    Toggle(isOn: bindingForBold(layer)) {
+                        Image(systemName: "bold")
+                    }
+                    .toggleStyle(.button)
+                    
+                    Toggle(isOn: bindingForItalic(layer)) {
+                        Image(systemName: "italic")
+                    }
+                    .toggleStyle(.button)
+                    
+                    ColorPicker("", selection: bindingForTextColor(layer))
+                        .labelsHidden()
+                }
+            }
+            
+            Divider()
+            
+            // Alignment
+            VStack(alignment: .leading, spacing: 8) {
+                Text("对齐")
+                    .font(.subheadline.bold())
+                
+                Picker("", selection: bindingForAlignment(layer)) {
+                    ForEach(TextLayer.TextAlignment.allCases, id: \.self) { align in
+                        Text(align.rawValue).tag(align)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            
+            Divider()
+            
+            Button("编辑文字") {
+                editorState.startTextEditing(layer.id)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding()
+        .background(themeManager.theme.backgroundColor.opacity(0.5))
+        .cornerRadius(themeManager.theme.cornerRadius)
+    }
+    
     // MARK: - Helpers
     
     private var selectedPhotoLayer: PhotoLayer? {
@@ -165,6 +292,61 @@ struct InspectorPanel: View {
             return layer
         }
         return nil
+    }
+    
+    private var selectedTextLayer: TextLayer? {
+        guard let id = editorState.selectedLayerId else { return nil }
+        if let layer = editorState.leftPage.layers.first(where: { $0.id == id })?.layer as? TextLayer {
+            return layer
+        }
+        if let layer = editorState.rightPage.layers.first(where: { $0.id == id })?.layer as? TextLayer {
+            return layer
+        }
+        return nil
+    }
+    
+    // MARK: - Text Bindings
+    
+    private func bindingForTextContent(_ layer: TextLayer) -> Binding<String> {
+        Binding(
+            get: { layer.text },
+            set: { editorState.updateTextContent(id: layer.id, text: $0) }
+        )
+    }
+    
+    private func bindingForFontSize(_ layer: TextLayer) -> Binding<Double> {
+        Binding(
+            get: { layer.fontSize },
+            set: { editorState.updateTextStyle(id: layer.id, fontSize: $0) }
+        )
+    }
+    
+    private func bindingForTextColor(_ layer: TextLayer) -> Binding<Color> {
+        Binding(
+            get: { Color(hex: layer.colorHex) ?? .black },
+            set: { editorState.updateTextStyle(id: layer.id, colorHex: $0.toHex()) }
+        )
+    }
+    
+    private func bindingForBold(_ layer: TextLayer) -> Binding<Bool> {
+        Binding(
+            get: { layer.isBold },
+            set: { editorState.updateTextStyle(id: layer.id, isBold: $0) }
+        )
+    }
+    
+    private func bindingForItalic(_ layer: TextLayer) -> Binding<Bool> {
+        Binding(
+            get: { layer.isItalic },
+            set: { editorState.updateTextStyle(id: layer.id, isItalic: $0) }
+        )
+    }
+    
+    private func bindingForAlignment(_ layer: TextLayer) -> Binding<TextLayer.TextAlignment> {
+        Binding(
+            get: { layer.alignment },
+            set: { editorState.updateTextStyle(id: layer.id, alignment: $0) }
+        )
     }
     
     private func bindingForBorderWidth(_ layer: PhotoLayer) -> Binding<Double> {

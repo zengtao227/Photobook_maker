@@ -245,6 +245,44 @@ struct BookPage: View {
     }
 }
 
+// MARK: - Text Layer Display
+
+struct TextLayerElement: View {
+    let layer: TextLayer
+    
+    private var swiftUIAlignment: SwiftUI.TextAlignment {
+        switch layer.alignment {
+        case .leading: return .leading
+        case .center: return .center
+        case .trailing: return .trailing
+        }
+    }
+    
+    var body: some View {
+        Text(layer.text)
+            .font(.custom(layer.fontName, size: layer.fontSize))
+            .fontWeight(layer.isBold ? .bold : .regular)
+            .italic(layer.isItalic)
+            .foregroundColor(Color(hex: layer.colorHex))
+            .multilineTextAlignment(swiftUIAlignment)
+            .frame(width: layer.frame.width, height: layer.frame.height, alignment: alignmentForFrame)
+            .background(
+                layer.backgroundColorHex != nil 
+                    ? Color(hex: layer.backgroundColorHex!) 
+                    : Color.clear
+            )
+            .contentShape(Rectangle())
+    }
+    
+    private var alignmentForFrame: Alignment {
+        switch layer.alignment {
+        case .leading: return .leading
+        case .center: return .center
+        case .trailing: return .trailing
+        }
+    }
+}
+
 struct PhotoLayerElement: View {
     let layer: PhotoLayer
     
@@ -490,6 +528,125 @@ struct InteractiveLayer: View {
                 }
                 
                 // 删除
+                Button(role: .destructive) {
+                    editorState.deleteSelectedLayer()
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            }
+        }
+        // MARK: - Text Layer Rendering
+        else if let textLayer = currentLayer as? TextLayer {
+            let displayFrame = transientFrame ?? textLayer.frame
+            let rotation = transientRotation ?? textLayer.rotation
+            let isSelected = editorState.selectedLayerId == textLayer.id
+            let isEditing = editorState.editingTextLayerId == textLayer.id
+            
+            ZStack {
+                // Text Content
+                if isEditing {
+                    // Inline editing mode
+                    InlineTextEditor(
+                        layer: textLayer,
+                        onCommit: { newText in
+                            editorState.updateTextContent(id: textLayer.id, text: newText)
+                            editorState.endTextEditing()
+                        },
+                        onCancel: {
+                            editorState.endTextEditing()
+                        }
+                    )
+                    .frame(width: displayFrame.width, height: displayFrame.height)
+                } else {
+                    TextLayerElement(layer: textLayer)
+                }
+                
+                // Selection handles
+                if isSelected && !isEditing {
+                    SelectionBorder(
+                        frame: Binding(
+                            get: { displayFrame },
+                            set: { transientFrame = $0 }
+                        ),
+                        rotation: Binding(
+                            get: { rotation },
+                            set: { transientRotation = $0 }
+                        ),
+                        lockAspectRatio: false, // Text can resize freely
+                        onCommitFrame: {
+                            if let frame = transientFrame {
+                                editorState.updateLayerFrame(textLayer.id, newFrame: frame)
+                            }
+                            transientFrame = nil
+                        },
+                        onCommitRotation: {
+                            if let rot = transientRotation {
+                                editorState.updateLayerRotation(textLayer.id, newRotation: rot)
+                            }
+                            transientRotation = nil
+                        }
+                    )
+                }
+            }
+            .frame(width: displayFrame.width, height: displayFrame.height)
+            .rotationEffect(.degrees(rotation))
+            .position(x: displayFrame.midX, y: displayFrame.midY)
+            // Drag gesture
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        if !isEditing {
+                            let newOrigin = CGPoint(
+                                x: textLayer.frame.origin.x + value.translation.width,
+                                y: textLayer.frame.origin.y + value.translation.height
+                            )
+                            transientFrame = CGRect(origin: newOrigin, size: textLayer.frame.size)
+                        }
+                    }
+                    .onEnded { _ in
+                        if let frame = transientFrame {
+                            editorState.updateLayerFrame(textLayer.id, newFrame: frame)
+                        }
+                        transientFrame = nil
+                    }
+            )
+            // Single tap to select
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded {
+                        editorState.selectLayer(textLayer.id)
+                    }
+            )
+            // Double tap to edit
+            .simultaneousGesture(
+                TapGesture(count: 2)
+                    .onEnded {
+                        editorState.startTextEditing(textLayer.id)
+                    }
+            )
+            .contextMenu {
+                Button {
+                    editorState.startTextEditing(textLayer.id)
+                } label: {
+                    Label("编辑文字", systemImage: "pencil")
+                }
+                
+                Divider()
+                
+                Button {
+                    editorState.moveLayerToFront(textLayer.id)
+                } label: {
+                    Label("移到最前", systemImage: "square.3.layers.3d.top.filled")
+                }
+                
+                Button {
+                    editorState.moveLayerToBack(textLayer.id)
+                } label: {
+                    Label("移到最后", systemImage: "square.3.layers.3d.bottom.filled")
+                }
+                
+                Divider()
+                
                 Button(role: .destructive) {
                     editorState.deleteSelectedLayer()
                 } label: {

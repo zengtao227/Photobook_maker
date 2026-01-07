@@ -94,11 +94,27 @@ public struct TextLayer: LayerProtocol {
     public var zIndex: Int = 0
     public var isLocked: Bool = false
     
-    // Text specific
+    // Text content
     public var text: String
+    
+    // Font properties
     public var fontSize: Double = 24
-    public var fontName: String = "Helvetica"
+    public var fontName: String = "Helvetica Neue"
+    public var isBold: Bool = false
+    public var isItalic: Bool = false
+    
+    // Color
     public var colorHex: String = "#000000"
+    public var backgroundColorHex: String? = nil // Optional background
+    
+    // Alignment
+    public var alignment: TextAlignment = .center
+    
+    public enum TextAlignment: String, Codable, CaseIterable {
+        case leading = "左对齐"
+        case center = "居中"
+        case trailing = "右对齐"
+    }
     
     public init(text: String, frame: CGRect) {
         self.id = LayerID()
