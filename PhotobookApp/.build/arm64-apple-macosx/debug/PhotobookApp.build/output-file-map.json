@@ -50,6 +50,12 @@
     "swiftmodule": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/EditorState~partial.swiftmodule",
     "swift-dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/EditorState.swiftdeps"
   },
+  "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/CropEditor.swift": {
+    "dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CropEditor.d",
+    "object": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CropEditor.swift.o",
+    "swiftmodule": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CropEditor~partial.swiftmodule",
+    "swift-dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CropEditor.swiftdeps"
+  },
   "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift": {
     "dependencies": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay.d",
     "object": "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay.swift.o",

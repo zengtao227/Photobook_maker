@@ -6,6 +6,7 @@
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Core/Theme/ThemeManager.swift
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/CanvasView.swift
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/EditorState.swift
+/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/CropEditor.swift
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Common/MacTextField.swift
 /Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Inspector/InspectorPanel.swift
