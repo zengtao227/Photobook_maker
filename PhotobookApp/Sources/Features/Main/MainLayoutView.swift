@@ -6,6 +6,10 @@ struct MainLayoutView: View {
     @Environment(EditorState.self) private var editorState
     @EnvironmentObject var photoStore: PhotoStore
     
+    // Page Management State
+    @State private var pages: [PhotoPage] = [PhotoPage(id: UUID(), order: 0)]
+    @State private var activePageId: UUID? = nil
+    
     let currentProject: ProjectMetadata
     let onCloseProject: () -> Void
     
@@ -49,13 +53,19 @@ struct MainLayoutView: View {
                 .background(themeManager.theme.panelColor.opacity(0.5))
                 
                 // Canvas Area
+                // Pass active page info to canvas if needed - For now we keep generic CanvasView
                 CanvasView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-                // Bottom Timeline
-                TimelineBar()
+                // Bottom Page Navigator (Filmstrip)
+                PageNavigatorView(pages: $pages, activePageId: $activePageId)
                     .frame(height: 120)
                     .background(themeManager.theme.panelColor)
+                    .onAppear {
+                        if let first = pages.first {
+                            activePageId = first.id
+                        }
+                    }
             }
             .background(themeManager.theme.backgroundColor) // Main Background
         } detail: {

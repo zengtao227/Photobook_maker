@@ -140,7 +140,14 @@ public struct StickerLayer: LayerProtocol {
     public var zIndex: Int = 0
     public var isLocked: Bool = false
     
-    public var url: URL
+    public enum StickerContent: Codable {
+        case url(URL)
+        case systemImage(String)
+        case emoji(String) // Also useful
+    }
+    
+    public var content: StickerContent
+    public var colorHex: String? = nil // Allowed to tint system images
     
     // Simple style for stickers
     public var shadowRadius: Double = 0.0
@@ -148,7 +155,20 @@ public struct StickerLayer: LayerProtocol {
     
     public init(url: URL, frame: CGRect) {
         self.id = LayerID()
-        self.url = url
+        self.content = .url(url)
+        self.frame = frame
+    }
+    
+    public init(systemImage: String, frame: CGRect, colorHex: String? = nil) {
+        self.id = LayerID()
+        self.content = .systemImage(systemImage)
+        self.frame = frame
+        self.colorHex = colorHex
+    }
+    
+    public init(emoji: String, frame: CGRect) {
+        self.id = LayerID()
+        self.content = .emoji(emoji)
         self.frame = frame
     }
 }

@@ -143,15 +143,49 @@ public class EditorState {
             let offsetX = CGFloat.random(in: 50...150)
             let offsetY = CGFloat.random(in: 50...150)
             
-            // Note: In a real app we would get page size from somewhere.
-            // For now assuming A4ish.
-            position = CGPoint(x: offsetX, y: offsetY)
-        }
-        
-        let frame = CGRect(origin: position, size: size)
-        let sticker = StickerLayer(url: url, frame: frame)
-        addLayer(sticker, toLeftPage: isLeftPage)
+        // Note: In a real app we would get page size from somewhere.
+        // For now assuming A4ish.
+        position = CGPoint(x: offsetX, y: offsetY)
     }
+    
+    let frame = CGRect(origin: position, size: size)
+    let sticker = StickerLayer(url: url, frame: frame)
+    addLayer(sticker, toLeftPage: isLeftPage)
+}
+
+func addSystemSticker(name: String, colorHex: String? = nil, isLeftPage: Bool, center: CGPoint? = nil) {
+    let size = CGSize(width: 100, height: 100)
+    
+    let position: CGPoint
+    if let center = center {
+        position = CGPoint(x: center.x - size.width/2, y: center.y - size.height/2)
+    } else {
+        let offsetX = CGFloat.random(in: 50...150)
+        let offsetY = CGFloat.random(in: 50...150)
+        position = CGPoint(x: offsetX, y: offsetY)
+    }
+    
+    let frame = CGRect(origin: position, size: size)
+    let sticker = StickerLayer(systemImage: name, frame: frame, colorHex: colorHex)
+    addLayer(sticker, toLeftPage: isLeftPage)
+}
+
+func addEmojiSticker(emoji: String, isLeftPage: Bool, center: CGPoint? = nil) {
+    let size = CGSize(width: 100, height: 100)
+    
+    let position: CGPoint
+    if let center = center {
+        position = CGPoint(x: center.x - size.width/2, y: center.y - size.height/2)
+    } else {
+        let offsetX = CGFloat.random(in: 50...150)
+        let offsetY = CGFloat.random(in: 50...150)
+        position = CGPoint(x: offsetX, y: offsetY)
+    }
+    
+    let frame = CGRect(origin: position, size: size)
+    let sticker = StickerLayer(emoji: emoji, frame: frame)
+    addLayer(sticker, toLeftPage: isLeftPage)
+}
     
     func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil) {
         // Calculate initial size based on image aspect ratio

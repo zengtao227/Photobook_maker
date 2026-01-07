@@ -961,11 +961,27 @@ struct StickerLayerElement: View {
     let layer: StickerLayer
     
     var body: some View {
-        AsyncImage(url: layer.url) { image in
-            image.resizable()
-                .aspectRatio(contentMode: .fit)
-        } placeholder: {
-            ProgressView()
+        Group {
+            switch layer.content {
+            case .url(let url):
+                AsyncImage(url: url) { image in
+                    image.resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    ProgressView()
+                }
+                
+            case .systemImage(let name):
+                Image(systemName: name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundColor(Color(hex: layer.colorHex ?? "#000000") ?? .black)
+                    
+            case .emoji(let char):
+                Text(char)
+                    .font(.system(size: min(layer.frame.width, layer.frame.height)))
+                    .minimumScaleFactor(0.1)
+            }
         }
         .frame(width: layer.frame.width, height: layer.frame.height)
         .rotationEffect(.degrees(layer.rotation))

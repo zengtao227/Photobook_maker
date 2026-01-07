@@ -5,7 +5,7 @@ struct InspectorPanel: View {
     @Environment(BookContext.self) private var bookContext
     @Environment(EditorState.self) private var editorState
     
-    @State private var isImportingSticker = false
+    @State private var showStickerPicker = false
     @State private var stickerTargetIsLeft = true
     
     var body: some View {
@@ -72,7 +72,7 @@ struct InspectorPanel: View {
                 // Import Sticker Button (Left)
                 Button {
                     stickerTargetIsLeft = true
-                    isImportingSticker = true
+                    showStickerPicker = true
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "star")
@@ -83,12 +83,12 @@ struct InspectorPanel: View {
                     .frame(width: 70, height: 60)
                 }
                 .buttonStyle(.bordered)
-                .help("导入图片作为贴纸到左页")
+                .help("添加贴纸到左页")
                 
                 // Import Sticker Button (Right)
                 Button {
                     stickerTargetIsLeft = false
-                    isImportingSticker = true
+                    showStickerPicker = true
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "star")
@@ -99,22 +99,18 @@ struct InspectorPanel: View {
                     .frame(width: 70, height: 60)
                 }
                 .buttonStyle(.bordered)
+                .help("添加贴纸到右页")
+            }
+        }
+                .buttonStyle(.bordered)
                 .help("导入图片作为贴纸到右页")
             }
         }
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
         .cornerRadius(themeManager.theme.cornerRadius)
-        .fileImporter(isPresented: $isImportingSticker, allowedContentTypes: [.image]) { result in
-            switch result {
-            case .success(let url):
-                // Security scoped resource access
-                guard url.startAccessingSecurityScopedResource() else { return }
-                defer { url.stopAccessingSecurityScopedResource() }
-                editorState.addStickerLayer(url: url, isLeftPage: stickerTargetIsLeft)
-            case .failure(let error):
-                print("Import sticker failed: \(error.localizedDescription)")
-            }
+        .sheet(isPresented: $showStickerPicker) {
+            StickerPickerView(isLeftPage: stickerTargetIsLeft)
         }
     }
     

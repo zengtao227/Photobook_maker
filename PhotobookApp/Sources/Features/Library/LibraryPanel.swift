@@ -4,10 +4,42 @@ struct LibraryPanel: View {
     @Environment(ThemeManager.self) private var themeManager
     @EnvironmentObject var photoStore: PhotoStore // Connect to real data
     
+    @State private var libraryTab: LibraryTab = .photos
+    @StateObject private var stickerService = StickerService()
+
+    // Restored missing state variables
     @State private var searchText = ""
     @State private var expandedMonths: Set<String> = []
-    
+
+    enum LibraryTab: String, CaseIterable, Identifiable {
+        case photos = "Photos"
+        case stickers = "Stickers"
+        var id: String { rawValue }
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            // Tab Switcher
+            Picker("Library Tab", selection: $libraryTab) {
+                ForEach(LibraryTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding()
+            
+            if libraryTab == .photos {
+                photoLibraryContent
+            } else {
+                StickerPickerView(stickerService: stickerService) { sticker in
+                    // Handle sticker selection (e.g., drag or add to canvas)
+                    print("Sticker selected: \(sticker.content)")
+                }
+            }
+        }
+    }
+
+    var photoLibraryContent: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
@@ -21,7 +53,8 @@ struct LibraryPanel: View {
                 }
                 .help("Import Folder") // Tooltip clarification
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom, 8)
             
             // Search Bar
             HStack {
