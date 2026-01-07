@@ -3,7 +3,6 @@ import SwiftUI
 struct StickerPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(EditorState.self) private var editorState
-    @Environment(PhotoStore.self) private var photoStore // If needed for security scope? Actually editorState handles file logic? No, fileImporter here.
     
     let isLeftPage: Bool
     

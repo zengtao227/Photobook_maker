@@ -71,3 +71,11 @@ shared_env/
 # 特定项目文件
 **/dependency_install.log
 **/.afpDeleted*
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj/
+xcuserdata/
+DerivedData/

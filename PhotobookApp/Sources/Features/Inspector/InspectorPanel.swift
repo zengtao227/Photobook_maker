@@ -102,10 +102,7 @@ struct InspectorPanel: View {
                 .help("添加贴纸到右页")
             }
         }
-                .buttonStyle(.bordered)
-                .help("导入图片作为贴纸到右页")
-            }
-        }
+
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
         .cornerRadius(themeManager.theme.cornerRadius)

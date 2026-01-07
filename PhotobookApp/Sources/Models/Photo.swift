@@ -97,3 +97,14 @@ struct MonthGroup: Identifiable {
         self.photos = photos
     }
 }
+
+/// Lightweight page model for the navigator
+struct PhotoPage: Identifiable, Codable {
+    let id: UUID
+    var order: Int
+    
+    init(id: UUID = UUID(), order: Int) {
+        self.id = id
+        self.order = order
+    }
+}
