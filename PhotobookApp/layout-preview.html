@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photobook Layout Templates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        h2 {
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a4a6a;
+            color: #88c0d0;
+        }
+
+        .section-desc {
+            color: #888;
+            margin-bottom: 30px;
+        }
+
+        /* Main App Layout Preview */
+        .app-preview {
+            background: #2d2d44;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            margin-bottom: 60px;
+        }
+
+        .app-titlebar {
+            background: #3d3d5c;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .window-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .window-btn.red { background: #ff5f57; }
+        .window-btn.yellow { background: #ffbd2e; }
+        .window-btn.green { background: #28ca42; }
+
+        .app-title {
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .app-toolbar {
+            background: #3d3d5c;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #4a4a6a;
+        }
+
+        .toolbar-btn {
+            background: #5a5a8a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .toolbar-btn:hover {
+            background: #6a6a9a;
+        }
+
+        .toolbar-btn.primary {
+            background: #4c9aff;
+        }
+
+        .app-content {
+            display: grid;
+            grid-template-columns: 200px 1fr 280px;
+            height: 500px;
+        }
+
+        .sidebar {
+            background: #252540;
+            padding: 15px;
+            border-right: 1px solid #3d3d5c;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .month-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .month-item:hover {
+            background: #3d3d5c;
+        }
+
+        .month-item.active {
+            background: #4c9aff;
+        }
+
+        .month-count {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .month-item.active .month-count {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .photo-grid {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+            overflow-y: auto;
+            align-content: start;
+        }
+
+        .photo-thumb {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #4a4a6a, #3a3a5a);
+            border-radius: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .photo-thumb:hover {
+            transform: scale(1.05);
+        }
+
+        .photo-thumb.selected {
+            outline: 3px solid #4c9aff;
+        }
+
+        .photo-thumb.selected::after {
+            content: "✓";
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #4c9aff;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .photo-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            opacity: 0.5;
+        }
+
+        .selection-panel {
+            background: #252540;
+            padding: 15px;
+            border-left: 1px solid #3d3d5c;
+        }
+
+        .selection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .clear-btn {
+            color: #4c9aff;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .selected-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .selected-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #3d3d5c;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+
+        .selected-thumb {
+            width: 40px;
+            height: 40px;
+            background: #5a5a8a;
+            border-radius: 4px;
+        }
+
+        .selected-info {
+            flex: 1;
+            font-size: 12px;
+        }
+
+        .selected-date {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .selection-footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #3d3d5c;
+            text-align: center;
+            color: #888;
+            font-size: 13px;
+        }
+
+        /* Layout Templates Grid */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .template-card {
+            background: #2d2d44;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .template-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .template-preview {
+            aspect-ratio: 148/105;
+            background: #fff;
+            padding: 8px;
+            display: grid;
+            gap: 4px;
+        }
+
+        .template-slot {
+            background: linear-gradient(135deg, #e8e8e8, #d0d0d0);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 20px;
+        }
+
+        .template-info {
+            padding: 15px;
+        }
+
+        .template-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .template-desc {
+            color: #888;
+            font-size: 13px;
+        }
+
+        /* Specific template layouts */
+        .layout-full {
+            grid-template: 1fr / 1fr;
+        }
+
+        .layout-2h {
+            grid-template: 1fr 1fr / 1fr;
+        }
+
+        .layout-2v {
+            grid-template: 1fr / 1fr 1fr;
+        }
+
+        .layout-1l2s {
+            grid-template: 2fr 1fr / 1fr 1fr;
+        }
+        .layout-1l2s .slot-1 {
+            grid-column: span 2;
+        }
+
+        .layout-2l1s {
+            grid-template: 1fr 2fr / 1fr 1fr;
+        }
+        .layout-2l1s .slot-3 {
+            grid-column: span 2;
+        }
+
+        .layout-3h {
+            grid-template: 1fr 1fr 1fr / 1fr;
+        }
+
+        .layout-3v {
+            grid-template: 1fr / 1fr 1fr 1fr;
+        }
+
+        .layout-1l3s {
+            grid-template: 2fr 1fr / 1fr 1fr 1fr;
+        }
+        .layout-1l3s .slot-1 {
+            grid-column: span 3;
+        }
+
+        .layout-4grid {
+            grid-template: 1fr 1fr / 1fr 1fr;
+        }
+
+        .layout-1l4s {
+            grid-template: 2fr 1fr / 1fr 1fr 1fr 1fr;
+        }
+        .layout-1l4s .slot-1 {
+            grid-column: span 4;
+        }
+
+        .layout-2l3s {
+            grid-template: 1fr 1fr / 1fr 1fr 1fr;
+        }
+        .layout-2l3s .slot-1 {
+            grid-column: span 2;
+        }
+        .layout-2l3s .slot-2 {
+            grid-row: span 2;
+        }
+
+        .layout-5mix {
+            grid-template: 1fr 1fr / 1fr 1fr 1fr;
+        }
+        .layout-5mix .slot-1 {
+            grid-row: span 2;
+        }
+
+        .layout-6grid {
+            grid-template: 1fr 1fr / 1fr 1fr 1fr;
+        }
+
+        .layout-8grid {
+            grid-template: 1fr 1fr / 1fr 1fr 1fr 1fr;
+        }
+
+        .layout-9grid {
+            grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr;
+        }
+
+        .layout-collage1 {
+            grid-template: 2fr 1fr 1fr / 1fr 2fr 1fr;
+        }
+        .layout-collage1 .slot-1 {
+            grid-row: span 2;
+        }
+        .layout-collage1 .slot-2 {
+            grid-row: span 2;
+        }
+
+        .layout-panorama {
+            grid-template: 2fr 1fr / 1fr 1fr 1fr;
+        }
+        .layout-panorama .slot-1 {
+            grid-column: span 3;
+        }
+
+        .layout-filmstrip {
+            grid-template: 1fr / 1fr 1fr 1fr 1fr 1fr;
+        }
+
+        .layout-center {
+            grid-template: 1fr 3fr 1fr / 1fr 3fr 1fr;
+        }
+        .layout-center .slot-1 {
+            grid-row: 2;
+            grid-column: 2;
+        }
+
+        .layout-mosaic {
+            grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr 1fr;
+        }
+        .layout-mosaic .slot-1 {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+
+        .layout-diagonal {
+            grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr;
+        }
+        .layout-diagonal .slot-1 {
+            grid-column: 1;
+            grid-row: 1;
+        }
+        .layout-diagonal .slot-2 {
+            grid-column: 2 / 4;
+            grid-row: 1 / 3;
+        }
+        .layout-diagonal .slot-3 {
+            grid-column: 1;
+            grid-row: 2 / 4;
+        }
+        .layout-diagonal .slot-4 {
+            grid-column: 2 / 4;
+            grid-row: 3;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Photobook Layout Templates</h1>
+
+    <!-- Main App Layout Preview -->
+    <h2>App Main Interface</h2>
+    <p class="section-desc">Three-column layout: Timeline (left) | Photo Grid (center) | Selection Panel (right)</p>
+
+    <div class="app-preview">
+        <div class="app-titlebar">
+            <div class="window-btn red"></div>
+            <div class="window-btn yellow"></div>
+            <div class="window-btn green"></div>
+            <div class="app-title">PhotobookApp</div>
+        </div>
+        <div class="app-toolbar">
+            <button class="toolbar-btn">Import Folder</button>
+            <button class="toolbar-btn primary">Export PDF</button>
+        </div>
+        <div class="app-content">
+            <div class="sidebar">
+                <div class="sidebar-title">Timeline</div>
+                <div class="month-item">
+                    <span>January 2024</span>
+                    <span class="month-count">42</span>
+                </div>
+                <div class="month-item active">
+                    <span>February 2024</span>
+                    <span class="month-count">38</span>
+                </div>
+                <div class="month-item">
+                    <span>March 2024</span>
+                    <span class="month-count">56</span>
+                </div>
+                <div class="month-item">
+                    <span>April 2024</span>
+                    <span class="month-count">29</span>
+                </div>
+                <div class="month-item">
+                    <span>May 2024</span>
+                    <span class="month-count">45</span>
+                </div>
+                <div class="month-item">
+                    <span>June 2024</span>
+                    <span class="month-count">61</span>
+                </div>
+            </div>
+            <div class="photo-grid">
+                <div class="photo-thumb selected"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb selected"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb selected"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb selected"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb selected"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+                <div class="photo-thumb"><span class="photo-icon">📷</span></div>
+            </div>
+            <div class="selection-panel">
+                <div class="selection-header">
+                    <strong>Selected: 5 photos</strong>
+                    <button class="clear-btn">Clear</button>
+                </div>
+                <div class="selected-list">
+                    <div class="selected-item">
+                        <div class="selected-thumb"></div>
+                        <div class="selected-info">
+                            IMG_0234.jpg
+                            <div class="selected-date">Feb 3, 2024</div>
+                        </div>
+                    </div>
+                    <div class="selected-item">
+                        <div class="selected-thumb"></div>
+                        <div class="selected-info">
+                            IMG_0235.jpg
+                            <div class="selected-date">Feb 5, 2024</div>
+                        </div>
+                    </div>
+                    <div class="selected-item">
+                        <div class="selected-thumb"></div>
+                        <div class="selected-info">
+                            IMG_0241.jpg
+                            <div class="selected-date">Feb 8, 2024</div>
+                        </div>
+                    </div>
+                    <div class="selected-item">
+                        <div class="selected-thumb"></div>
+                        <div class="selected-info">
+                            IMG_0256.jpg
+                            <div class="selected-date">Feb 14, 2024</div>
+                        </div>
+                    </div>
+                    <div class="selected-item">
+                        <div class="selected-thumb"></div>
+                        <div class="selected-info">
+                            IMG_0267.jpg
+                            <div class="selected-date">Feb 20, 2024</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="selection-footer">
+                    <div>Page Size: A6 Landscape</div>
+                    <div>Estimated pages: 2</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Templates -->
+    <h2>Page Layout Templates (20 types)</h2>
+    <p class="section-desc">Click to select a layout for your photobook pages</p>
+
+    <div class="templates-grid">
+        <!-- 1 Photo -->
+        <div class="template-card">
+            <div class="template-preview layout-full">
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Full Page</div>
+                <div class="template-desc">1 photo - Full bleed</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-center">
+                <div class="template-slot slot-1">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Centered</div>
+                <div class="template-desc">1 photo - With white border</div>
+            </div>
+        </div>
+
+        <!-- 2 Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-2h">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">2 Horizontal</div>
+                <div class="template-desc">2 photos - Stacked</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-2v">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">2 Vertical</div>
+                <div class="template-desc">2 photos - Side by side</div>
+            </div>
+        </div>
+
+        <!-- 3 Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-1l2s">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">1 Large + 2 Small (Top)</div>
+                <div class="template-desc">3 photos - Hero image on top</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-2l1s">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot slot-3">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">2 Small + 1 Large (Bottom)</div>
+                <div class="template-desc">3 photos - Hero image on bottom</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-3h">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">3 Horizontal</div>
+                <div class="template-desc">3 photos - Stacked strips</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-3v">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">3 Vertical</div>
+                <div class="template-desc">3 photos - Vertical strips</div>
+            </div>
+        </div>
+
+        <!-- 4 Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-4grid">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">4 Grid</div>
+                <div class="template-desc">4 photos - 2x2 grid</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-1l3s">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">1 Large + 3 Small</div>
+                <div class="template-desc">4 photos - Hero with thumbnails</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-diagonal">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot slot-2">📷</div>
+                <div class="template-slot slot-3">📷</div>
+                <div class="template-slot slot-4">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Diagonal</div>
+                <div class="template-desc">4 photos - Dynamic composition</div>
+            </div>
+        </div>
+
+        <!-- 5 Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-5mix">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">5 Mix</div>
+                <div class="template-desc">5 photos - 1 large + 4 small</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-1l4s">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">1 Large + 4 Thumbnails</div>
+                <div class="template-desc">5 photos - Filmstrip style</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-filmstrip">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Filmstrip</div>
+                <div class="template-desc">5 photos - Horizontal strip</div>
+            </div>
+        </div>
+
+        <!-- 6 Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-6grid">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">6 Grid</div>
+                <div class="template-desc">6 photos - 2x3 grid</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-mosaic">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Mosaic</div>
+                <div class="template-desc">6 photos - 1 large + 5 small</div>
+            </div>
+        </div>
+
+        <!-- 7+ Photos -->
+        <div class="template-card">
+            <div class="template-preview layout-panorama">
+                <div class="template-slot slot-1">📷 Panorama</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Panorama + 3</div>
+                <div class="template-desc">4 photos - Panorama header</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-8grid">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">8 Grid</div>
+                <div class="template-desc">8 photos - 2x4 grid</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-9grid">
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">9 Grid</div>
+                <div class="template-desc">9 photos - 3x3 grid</div>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <div class="template-preview layout-collage1">
+                <div class="template-slot slot-1">📷</div>
+                <div class="template-slot slot-2">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+                <div class="template-slot">📷</div>
+            </div>
+            <div class="template-info">
+                <div class="template-name">Collage</div>
+                <div class="template-desc">5 photos - Artistic mix</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>PhotobookApp - Layout Template Preview</p>
+        <p>A6 Size: 148 x 105 mm | 300 DPI | Print Ready</p>
+    </footer>
+</body>
+</html>

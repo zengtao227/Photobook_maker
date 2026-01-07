@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photobook Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: #16213e;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #0f3460;
+            border-radius: 20px;
+            margin-right: 10px;
+        }
+
+        .theme-toggle span {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .theme-switch {
+            width: 44px;
+            height: 24px;
+            background: #333;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .theme-switch::before {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+
+        .theme-switch.light {
+            background: #667eea;
+        }
+
+        .theme-switch.light::before {
+            transform: translateX(20px);
+        }
+
+        /* Light Theme */
+        body.light-theme {
+            background: #f0f2f5;
+        }
+
+        body.light-theme .header {
+            background: #fff;
+            border-bottom-color: #e0e0e0;
+        }
+
+        body.light-theme .header-title {
+            color: #333;
+        }
+
+        body.light-theme .preview-area {
+            background: linear-gradient(135deg, #e8eaf6, #f5f5f5);
+        }
+
+        body.light-theme .page-nav {
+            background: #fff;
+        }
+
+        body.light-theme .page-nav button {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        body.light-theme .page-info {
+            color: #666;
+        }
+
+        body.light-theme .resize-handle {
+            background: #e0e0e0;
+        }
+
+        body.light-theme .tools-panel {
+            background: #fff;
+            border-top-color: #e0e0e0;
+        }
+
+        body.light-theme .tab-nav {
+            background: #f5f5f5;
+        }
+
+        body.light-theme .tab-btn {
+            color: #666;
+        }
+
+        body.light-theme .tab-btn.active {
+            color: #333;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        body.light-theme .tab-content {
+            background: #fff;
+        }
+
+        body.light-theme .control-group,
+        body.light-theme .text-input,
+        body.light-theme .font-select,
+        body.light-theme .size-select {
+            background: #f5f5f5;
+            border-color: #e0e0e0;
+            color: #333;
+        }
+
+        body.light-theme .sticker-item,
+        body.light-theme .frame-item {
+            background: #f5f5f5;
+        }
+
+        body.light-theme .category-btn {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        body.light-theme .upload-area,
+        body.light-theme .bg-upload-area {
+            border-color: #ccc;
+        }
+
+        body.light-theme .opacity-control {
+            background: #f5f5f5;
+        }
+
+        body.light-theme .theme-toggle {
+            background: #e0e0e0;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: #0f3460;
+            color: #fff;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 57px);
+        }
+
+        /* Preview Area - Always Visible */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 400px;
+        }
+
+        .page-preview {
+            width: 600px;
+            height: 420px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-content {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Photo slots */
+        .photo-slot {
+            position: absolute;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .photo-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-slot.empty {
+            border: 2px dashed #ccc;
+        }
+
+        .photo-slot.empty::after {
+            content: "+";
+            font-size: 40px;
+            color: #ccc;
+        }
+
+        /* Text elements */
+        .text-element {
+            position: absolute;
+            cursor: move;
+            padding: 8px 12px;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .text-element:hover {
+            outline: 2px solid #667eea;
+        }
+
+        /* Sticker elements */
+        .sticker-element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+
+        .sticker-element:hover {
+            filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.8));
+        }
+
+        /* Page Navigation */
+        .page-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: #16213e;
+        }
+
+        /* Resizable Divider */
+        .resize-handle {
+            height: 12px;
+            background: #0f3460;
+            cursor: ns-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover {
+            background: #667eea;
+        }
+
+        .resize-handle::before {
+            content: "";
+            width: 50px;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+        }
+
+        .resize-handle:hover::before {
+            background: #fff;
+        }
+
+        .page-nav button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: #0f3460;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .page-nav button:hover {
+            background: #667eea;
+        }
+
+        .page-info {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        /* Tools Panel */
+        .tools-panel {
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            min-height: 150px;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            background: #0f3460;
+            padding: 0 20px;
+        }
+
+        .tab-btn {
+            padding: 14px 24px;
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .tab-btn.active {
+            color: #fff;
+            border-bottom-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .tab-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Text Panel */
+        .text-controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .text-input {
+            padding: 10px 15px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            width: 300px;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .font-select, .size-select {
+            padding: 10px 15px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #0f3460;
+            padding: 4px;
+        }
+
+        .add-text-btn {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+
+        /* Stickers Panel */
+        .sticker-categories {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .category-btn {
+            padding: 8px 16px;
+            background: #0f3460;
+            border: none;
+            border-radius: 20px;
+            color: #aaa;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-btn:hover {
+            background: #1a3a5c;
+            color: #fff;
+        }
+
+        .category-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        .sticker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 12px;
+        }
+
+        .sticker-item {
+            aspect-ratio: 1;
+            background: #0f3460;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 10px;
+        }
+
+        .sticker-item:hover {
+            background: #1a3a5c;
+            transform: scale(1.05);
+        }
+
+        .sticker-item svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Frames Panel */
+        .frame-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .frame-item {
+            background: #0f3460;
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .frame-item:hover {
+            background: #1a3a5c;
+        }
+
+        .frame-item.selected {
+            outline: 2px solid #667eea;
+        }
+
+        .frame-preview {
+            width: 80px;
+            height: 60px;
+            margin: 0 auto 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .frame-name {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* Background Panel */
+        .bg-section {
+            margin-bottom: 20px;
+        }
+
+        .bg-section-title {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .bg-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+        }
+
+        .bg-item {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .bg-item:hover {
+            transform: scale(1.05);
+        }
+
+        .bg-item.selected {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Opacity Slider */
+        .opacity-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #0f3460;
+            border-radius: 10px;
+        }
+
+        .opacity-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+        }
+
+        .opacity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .opacity-value {
+            min-width: 45px;
+            text-align: right;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Custom scrollbar */
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tab-content::-webkit-scrollbar-track {
+            background: #0f3460;
+            border-radius: 4px;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed #0f3460;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-area svg {
+            width: 40px;
+            height: 40px;
+            fill: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #888;
+            font-size: 13px;
+        }
+
+        /* Custom Background Grid */
+        .custom-bg-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .custom-bg-item {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .custom-bg-item:hover {
+            transform: scale(1.05);
+        }
+
+        .custom-bg-item.selected {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+        }
+
+        .delete-bg {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            background: #ff5252;
+            color: white;
+            border: 2px solid #16213e;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .custom-bg-item:hover .delete-bg {
+            display: flex;
+        }
+
+        .bg-upload-area {
+            border: 2px dashed #0f3460;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .bg-upload-area:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .bg-upload-area.drag-over {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .bg-upload-area svg {
+            width: 30px;
+            height: 30px;
+            fill: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .bg-upload-text {
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">Photobook Editor</div>
+        <div class="header-actions">
+            <div class="theme-toggle">
+                <span>Dark</span>
+                <div class="theme-switch" id="themeSwitch"></div>
+                <span>Light</span>
+            </div>
+            <button class="btn btn-secondary">Preview</button>
+            <button class="btn btn-primary">Export PDF</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Preview Area - Always Visible -->
+        <div class="preview-area">
+            <div class="page-preview">
+                <div class="page-content" id="pageContent">
+                    <!-- Photo slots -->
+                    <div class="photo-slot" style="left: 5%; top: 5%; width: 55%; height: 60%;">
+                        <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600" alt="Photo">
+                    </div>
+                    <div class="photo-slot empty" style="right: 5%; top: 5%; width: 35%; height: 40%;"></div>
+                    <div class="photo-slot empty" style="right: 5%; bottom: 20%; width: 35%; height: 30%;"></div>
+
+                    <!-- Text element example -->
+                    <div class="text-element" style="bottom: 5%; left: 5%; font-family: Georgia; font-size: 18px; color: #333;">
+                        Summer Vacation 2024
+                    </div>
+
+                    <!-- Sticker examples -->
+                    <svg class="sticker-element" style="top: 10px; right: 45%; width: 50px;" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="#FFD93D"/>
+                        <circle cx="35" cy="40" r="5" fill="#333"/>
+                        <circle cx="65" cy="40" r="5" fill="#333"/>
+                        <path d="M30 60 Q50 80 70 60" stroke="#333" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Navigation -->
+        <div class="page-nav">
+            <button>&lt;</button>
+            <span class="page-info">Page <strong>3</strong> of <strong>24</strong></span>
+            <button>&gt;</button>
+        </div>
+
+        <!-- Resize Handle -->
+        <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
+
+        <!-- Tools Panel -->
+        <div class="tools-panel" id="toolsPanel">
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="text">
+                    <svg viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z"/></svg>
+                    Text
+                </button>
+                <button class="tab-btn" data-tab="stickers">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM8.5 8c.83 0 1.5.67 1.5 1.5S9.33 11 8.5 11 7 10.33 7 9.5 7.67 8 8.5 8zM12 18c-2.28 0-4.22-1.66-5-4h10c-.78 2.34-2.72 4-5 4zm3.5-7c-.83 0-1.5-.67-1.5-1.5S14.67 8 15.5 8s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                    Stickers
+                </button>
+                <button class="tab-btn" data-tab="frames">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/></svg>
+                    Frames
+                </button>
+                <button class="tab-btn" data-tab="backgrounds">
+                    <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+                    Backgrounds
+                </button>
+            </div>
+
+            <!-- Text Tab -->
+            <div class="tab-content active" id="tab-text">
+                <div class="text-controls">
+                    <div class="control-group">
+                        <label class="control-label">Text Content</label>
+                        <input type="text" class="text-input" placeholder="Enter your text here..." value="Summer Vacation 2024">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Font</label>
+                        <select class="font-select">
+                            <option value="Georgia">Georgia</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Courier New">Courier New</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Size</label>
+                        <select class="size-select">
+                            <option value="12">12px</option>
+                            <option value="14">14px</option>
+                            <option value="16">16px</option>
+                            <option value="18" selected>18px</option>
+                            <option value="24">24px</option>
+                            <option value="32">32px</option>
+                            <option value="48">48px</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Color</label>
+                        <input type="color" class="color-picker" value="#333333">
+                    </div>
+                    <button class="add-text-btn">+ Add Text</button>
+                </div>
+            </div>
+
+            <!-- Stickers Tab -->
+            <div class="tab-content" id="tab-stickers">
+                <!-- Upload Custom Stickers -->
+                <div class="upload-area">
+                    <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                    <div class="upload-text">Drop custom stickers here or click to upload</div>
+                </div>
+
+                <!-- Categories -->
+                <div class="sticker-categories">
+                    <button class="category-btn active">All</button>
+                    <button class="category-btn">Animals</button>
+                    <button class="category-btn">Nature</button>
+                    <button class="category-btn">Travel</button>
+                    <button class="category-btn">School</button>
+                    <button class="category-btn">Music</button>
+                    <button class="category-btn">Sports</button>
+                    <button class="category-btn">Food</button>
+                    <button class="category-btn">Holidays</button>
+                </div>
+
+                <!-- Sticker Grid -->
+                <div class="sticker-grid" id="stickerGrid">
+                    <!-- ===== Animals ===== -->
+                    <!-- Cat -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="60" rx="35" ry="30" fill="#FFB74D"/>
+                            <ellipse cx="50" cy="45" rx="28" ry="25" fill="#FFB74D"/>
+                            <polygon points="25,30 35,50 15,45" fill="#FFB74D"/>
+                            <polygon points="75,30 65,50 85,45" fill="#FFB74D"/>
+                            <ellipse cx="38" cy="42" rx="5" ry="6" fill="#333"/>
+                            <ellipse cx="62" cy="42" rx="5" ry="6" fill="#333"/>
+                            <ellipse cx="50" cy="52" rx="4" ry="3" fill="#FF8A65"/>
+                        </svg>
+                    </div>
+                    <!-- Dog -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="55" rx="30" ry="28" fill="#8D6E63"/>
+                            <ellipse cx="50" cy="40" rx="25" ry="22" fill="#8D6E63"/>
+                            <ellipse cx="30" cy="28" rx="12" ry="18" fill="#6D4C41"/>
+                            <ellipse cx="70" cy="28" rx="12" ry="18" fill="#6D4C41"/>
+                            <ellipse cx="38" cy="38" rx="4" ry="5" fill="#333"/>
+                            <ellipse cx="62" cy="38" rx="4" ry="5" fill="#333"/>
+                            <ellipse cx="50" cy="50" rx="8" ry="6" fill="#333"/>
+                            <ellipse cx="50" cy="62" rx="6" ry="4" fill="#FF8A80"/>
+                        </svg>
+                    </div>
+                    <!-- Bunny -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="60" rx="28" ry="25" fill="#FFF"/>
+                            <ellipse cx="35" cy="25" rx="8" ry="25" fill="#FFF"/>
+                            <ellipse cx="35" cy="25" rx="4" ry="18" fill="#FFCDD2"/>
+                            <ellipse cx="65" cy="25" rx="8" ry="25" fill="#FFF"/>
+                            <ellipse cx="65" cy="25" rx="4" ry="18" fill="#FFCDD2"/>
+                            <circle cx="40" cy="55" r="4" fill="#333"/>
+                            <circle cx="60" cy="55" r="4" fill="#333"/>
+                            <ellipse cx="50" cy="65" rx="3" ry="2" fill="#FFCDD2"/>
+                        </svg>
+                    </div>
+                    <!-- Panda -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="35" fill="#FFF"/>
+                            <ellipse cx="30" cy="25" rx="15" ry="12" fill="#333"/>
+                            <ellipse cx="70" cy="25" rx="15" ry="12" fill="#333"/>
+                            <ellipse cx="35" cy="45" rx="12" ry="10" fill="#333"/>
+                            <ellipse cx="65" cy="45" rx="12" ry="10" fill="#333"/>
+                            <circle cx="35" cy="45" r="4" fill="#FFF"/>
+                            <circle cx="65" cy="45" r="4" fill="#FFF"/>
+                            <ellipse cx="50" cy="60" rx="6" ry="4" fill="#333"/>
+                        </svg>
+                    </div>
+                    <!-- Bird -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="55" rx="25" ry="20" fill="#64B5F6"/>
+                            <circle cx="50" cy="35" r="18" fill="#64B5F6"/>
+                            <circle cx="55" cy="32" r="4" fill="#333"/>
+                            <polygon points="70,35 85,30 70,40" fill="#FF9800"/>
+                            <path d="M25,55 Q10,50 15,70" fill="#42A5F5"/>
+                            <path d="M75,55 Q90,50 85,70" fill="#42A5F5"/>
+                        </svg>
+                    </div>
+                    <!-- Butterfly -->
+                    <div class="sticker-item" data-category="animals">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="30" cy="35" rx="20" ry="22" fill="#E91E63"/>
+                            <ellipse cx="70" cy="35" rx="20" ry="22" fill="#E91E63"/>
+                            <ellipse cx="30" cy="65" rx="15" ry="18" fill="#F48FB1"/>
+                            <ellipse cx="70" cy="65" rx="15" ry="18" fill="#F48FB1"/>
+                            <ellipse cx="50" cy="50" rx="5" ry="25" fill="#333"/>
+                            <circle cx="30" cy="35" r="6" fill="#FCE4EC"/>
+                            <circle cx="70" cy="35" r="6" fill="#FCE4EC"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Nature ===== -->
+                    <!-- Sun -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="20" fill="#FFD54F"/>
+                            <g stroke="#FFD54F" stroke-width="4" stroke-linecap="round">
+                                <line x1="50" y1="10" x2="50" y2="22"/>
+                                <line x1="50" y1="78" x2="50" y2="90"/>
+                                <line x1="10" y1="50" x2="22" y2="50"/>
+                                <line x1="78" y1="50" x2="90" y2="50"/>
+                                <line x1="22" y1="22" x2="30" y2="30"/>
+                                <line x1="70" y1="70" x2="78" y2="78"/>
+                                <line x1="22" y1="78" x2="30" y2="70"/>
+                                <line x1="70" y1="30" x2="78" y2="22"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <!-- Cloud -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="35" cy="55" rx="22" ry="18" fill="#90CAF9"/>
+                            <ellipse cx="55" cy="45" rx="25" ry="22" fill="#90CAF9"/>
+                            <ellipse cx="70" cy="55" rx="18" ry="15" fill="#90CAF9"/>
+                        </svg>
+                    </div>
+                    <!-- Rainbow -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M10,70 A40,40 0 0,1 90,70" stroke="#F44336" stroke-width="6" fill="none"/>
+                            <path d="M16,70 A34,34 0 0,1 84,70" stroke="#FF9800" stroke-width="6" fill="none"/>
+                            <path d="M22,70 A28,28 0 0,1 78,70" stroke="#FFEB3B" stroke-width="6" fill="none"/>
+                            <path d="M28,70 A22,22 0 0,1 72,70" stroke="#4CAF50" stroke-width="6" fill="none"/>
+                            <path d="M34,70 A16,16 0 0,1 66,70" stroke="#2196F3" stroke-width="6" fill="none"/>
+                            <path d="M40,70 A10,10 0 0,1 60,70" stroke="#9C27B0" stroke-width="6" fill="none"/>
+                        </svg>
+                    </div>
+                    <!-- Flower -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="25" rx="12" ry="15" fill="#F48FB1"/>
+                            <ellipse cx="75" cy="40" rx="12" ry="15" fill="#F48FB1" transform="rotate(72 75 40)"/>
+                            <ellipse cx="65" cy="70" rx="12" ry="15" fill="#F48FB1" transform="rotate(144 65 70)"/>
+                            <ellipse cx="35" cy="70" rx="12" ry="15" fill="#F48FB1" transform="rotate(216 35 70)"/>
+                            <ellipse cx="25" cy="40" rx="12" ry="15" fill="#F48FB1" transform="rotate(288 25 40)"/>
+                            <circle cx="50" cy="50" r="12" fill="#FFD54F"/>
+                        </svg>
+                    </div>
+                    <!-- Tree -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="42" y="60" width="16" height="30" fill="#8D6E63"/>
+                            <polygon points="50,10 15,60 85,60" fill="#4CAF50"/>
+                            <polygon points="50,25 25,55 75,55" fill="#66BB6A"/>
+                        </svg>
+                    </div>
+                    <!-- Star -->
+                    <div class="sticker-item" data-category="nature">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M50,10 L61,40 L95,40 L68,60 L79,90 L50,72 L21,90 L32,60 L5,40 L39,40 Z" fill="#FFD54F"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Travel ===== -->
+                    <!-- Airplane -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M85 45 L60 45 L45 20 L40 20 L45 45 L20 45 L15 35 L10 35 L15 50 L10 65 L15 65 L20 55 L45 55 L40 80 L45 80 L60 55 L85 55 C90 55 95 52 95 50 C95 48 90 45 85 45" fill="#5C6BC0"/>
+                        </svg>
+                    </div>
+                    <!-- Suitcase -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="15" y="35" width="70" height="50" rx="5" fill="#FF7043"/>
+                            <rect x="35" y="25" width="30" height="12" rx="3" fill="#BF360C"/>
+                            <rect x="40" y="20" width="20" height="8" rx="2" fill="none" stroke="#BF360C" stroke-width="3"/>
+                            <rect x="25" y="50" width="50" height="4" fill="#BF360C"/>
+                            <rect x="25" y="60" width="50" height="4" fill="#BF360C"/>
+                        </svg>
+                    </div>
+                    <!-- Camera -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="15" y="35" width="70" height="45" rx="8" fill="#37474F"/>
+                            <circle cx="50" cy="57" r="18" fill="#263238"/>
+                            <circle cx="50" cy="57" r="12" fill="#5C6BC0"/>
+                            <circle cx="50" cy="57" r="6" fill="#303F9F"/>
+                            <rect x="35" y="25" width="30" height="12" rx="3" fill="#455A64"/>
+                            <circle cx="75" cy="42" r="4" fill="#F44336"/>
+                        </svg>
+                    </div>
+                    <!-- Passport -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="20" y="15" width="60" height="75" rx="4" fill="#1565C0"/>
+                            <circle cx="50" cy="45" r="18" fill="none" stroke="#FFD54F" stroke-width="2"/>
+                            <circle cx="50" cy="45" r="12" fill="none" stroke="#FFD54F" stroke-width="1"/>
+                            <text x="50" y="78" text-anchor="middle" fill="#FFD54F" font-size="10">PASSPORT</text>
+                        </svg>
+                    </div>
+                    <!-- Globe -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="35" fill="#42A5F5"/>
+                            <ellipse cx="50" cy="50" rx="35" ry="15" fill="none" stroke="#1E88E5" stroke-width="2"/>
+                            <ellipse cx="50" cy="50" rx="15" ry="35" fill="none" stroke="#1E88E5" stroke-width="2"/>
+                            <line x1="15" y1="50" x2="85" y2="50" stroke="#1E88E5" stroke-width="2"/>
+                            <line x1="50" y1="15" x2="50" y2="85" stroke="#1E88E5" stroke-width="2"/>
+                            <path d="M25,30 Q35,35 45,30 Q55,25 65,35" fill="#4CAF50"/>
+                            <path d="M30,55 Q45,50 55,60 Q65,55 75,60" fill="#4CAF50"/>
+                        </svg>
+                    </div>
+                    <!-- Beach -->
+                    <div class="sticker-item" data-category="travel">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="0" y="60" width="100" height="40" fill="#FFD54F"/>
+                            <rect x="0" y="0" width="100" height="60" fill="#81D4FA"/>
+                            <circle cx="80" cy="20" r="15" fill="#FFEB3B"/>
+                            <path d="M45,60 L50,30 L55,60" fill="#8D6E63"/>
+                            <path d="M50,30 Q35,25 25,40 Q40,35 50,30" fill="#4CAF50"/>
+                            <path d="M50,30 Q65,25 75,40 Q60,35 50,30" fill="#4CAF50"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== School ===== -->
+                    <!-- Book -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M10,20 L50,30 L50,85 L10,75 Z" fill="#5C6BC0"/>
+                            <path d="M90,20 L50,30 L50,85 L90,75 Z" fill="#7986CB"/>
+                            <rect x="48" y="28" width="4" height="58" fill="#3F51B5"/>
+                        </svg>
+                    </div>
+                    <!-- Pencil -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="20" y="30" width="60" height="15" fill="#FFD54F"/>
+                            <polygon points="80,30 80,45 95,37.5" fill="#FFCC80"/>
+                            <polygon points="95,37.5 80,35 80,40" fill="#333"/>
+                            <rect x="20" y="30" width="8" height="15" fill="#FF7043"/>
+                            <rect x="25" y="30" width="3" height="15" fill="#FFB74D"/>
+                        </svg>
+                    </div>
+                    <!-- Backpack -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="25" y="25" width="50" height="60" rx="10" fill="#E91E63"/>
+                            <rect x="35" y="45" width="30" height="25" rx="3" fill="#F48FB1"/>
+                            <rect x="40" y="15" width="20" height="15" rx="5" fill="#C2185B"/>
+                            <rect x="20" y="40" width="8" height="30" rx="3" fill="#AD1457"/>
+                            <rect x="72" y="40" width="8" height="30" rx="3" fill="#AD1457"/>
+                        </svg>
+                    </div>
+                    <!-- Apple -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="55" rx="30" ry="32" fill="#F44336"/>
+                            <ellipse cx="45" cy="40" rx="8" ry="5" fill="#EF9A9A"/>
+                            <path d="M50,25 Q55,15 60,20" stroke="#8D6E63" stroke-width="4" fill="none"/>
+                            <ellipse cx="58" cy="18" rx="8" ry="5" fill="#4CAF50"/>
+                        </svg>
+                    </div>
+                    <!-- Graduation Cap -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <polygon points="50,25 10,45 50,65 90,45" fill="#333"/>
+                            <rect x="30" y="50" width="40" height="20" fill="#333"/>
+                            <rect x="30" y="45" width="40" height="8" fill="#444"/>
+                            <line x1="75" y1="45" x2="85" y2="75" stroke="#FFD54F" stroke-width="3"/>
+                            <rect x="80" y="72" width="10" height="8" fill="#FFD54F"/>
+                        </svg>
+                    </div>
+                    <!-- Ruler -->
+                    <div class="sticker-item" data-category="school">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="15" y="35" width="70" height="30" rx="2" fill="#FFB74D"/>
+                            <line x1="25" y1="35" x2="25" y2="50" stroke="#333" stroke-width="1"/>
+                            <line x1="35" y1="35" x2="35" y2="55" stroke="#333" stroke-width="1"/>
+                            <line x1="45" y1="35" x2="45" y2="50" stroke="#333" stroke-width="1"/>
+                            <line x1="55" y1="35" x2="55" y2="55" stroke="#333" stroke-width="1"/>
+                            <line x1="65" y1="35" x2="65" y2="50" stroke="#333" stroke-width="1"/>
+                            <line x1="75" y1="35" x2="75" y2="55" stroke="#333" stroke-width="1"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Music ===== -->
+                    <!-- Music Note -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="30" cy="70" rx="15" ry="12" fill="#9C27B0"/>
+                            <rect x="43" y="20" width="5" height="52" fill="#9C27B0"/>
+                            <path d="M48,20 Q70,15 75,35 Q70,25 48,30" fill="#9C27B0"/>
+                        </svg>
+                    </div>
+                    <!-- Guitar -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="65" rx="25" ry="28" fill="#8D6E63"/>
+                            <ellipse cx="50" cy="65" rx="8" ry="10" fill="#333"/>
+                            <rect x="47" y="15" width="6" height="40" fill="#FFB74D"/>
+                            <rect x="43" y="10" width="14" height="8" rx="2" fill="#5D4037"/>
+                            <line x1="48" y1="55" x2="48" y2="80" stroke="#FFB74D" stroke-width="1"/>
+                            <line x1="52" y1="55" x2="52" y2="80" stroke="#FFB74D" stroke-width="1"/>
+                        </svg>
+                    </div>
+                    <!-- Headphones -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M20,50 Q20,20 50,20 Q80,20 80,50" stroke="#333" stroke-width="8" fill="none"/>
+                            <rect x="12" y="45" width="16" height="30" rx="5" fill="#333"/>
+                            <rect x="72" y="45" width="16" height="30" rx="5" fill="#333"/>
+                            <rect x="15" y="50" width="10" height="20" rx="3" fill="#E91E63"/>
+                            <rect x="75" y="50" width="10" height="20" rx="3" fill="#E91E63"/>
+                        </svg>
+                    </div>
+                    <!-- Piano Keys -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="10" y="25" width="80" height="50" rx="3" fill="#FFF" stroke="#333" stroke-width="2"/>
+                            <rect x="10" y="25" width="12" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="22" y="25" width="12" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="34" y="25" width="12" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="46" y="25" width="12" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="58" y="25" width="12" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="70" y="25" width="10" height="50" fill="#FFF" stroke="#333" stroke-width="1"/>
+                            <rect x="18" y="25" width="8" height="30" fill="#333"/>
+                            <rect x="38" y="25" width="8" height="30" fill="#333"/>
+                            <rect x="54" y="25" width="8" height="30" fill="#333"/>
+                            <rect x="66" y="25" width="8" height="30" fill="#333"/>
+                        </svg>
+                    </div>
+                    <!-- Microphone -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="35" rx="18" ry="25" fill="#607D8B"/>
+                            <rect x="46" y="58" width="8" height="20" fill="#455A64"/>
+                            <ellipse cx="50" cy="85" rx="20" ry="5" fill="#37474F"/>
+                            <line x1="35" y1="30" x2="65" y2="30" stroke="#333" stroke-width="2"/>
+                            <line x1="35" y1="38" x2="65" y2="38" stroke="#333" stroke-width="2"/>
+                            <line x1="35" y1="46" x2="65" y2="46" stroke="#333" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <!-- Vinyl Record -->
+                    <div class="sticker-item" data-category="music">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" fill="#333"/>
+                            <circle cx="50" cy="50" r="35" fill="#1a1a1a"/>
+                            <circle cx="50" cy="50" r="15" fill="#E91E63"/>
+                            <circle cx="50" cy="50" r="5" fill="#333"/>
+                            <circle cx="50" cy="50" r="25" fill="none" stroke="#444" stroke-width="1"/>
+                            <circle cx="50" cy="50" r="30" fill="none" stroke="#444" stroke-width="1"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Sports ===== -->
+                    <!-- Soccer Ball -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" fill="#FFF" stroke="#333" stroke-width="2"/>
+                            <polygon points="50,15 60,30 50,45 40,30" fill="#333"/>
+                            <polygon points="80,40 70,55 80,70 90,55" fill="#333"/>
+                            <polygon points="20,40 30,55 20,70 10,55" fill="#333"/>
+                            <polygon points="35,75 50,65 65,75 50,90" fill="#333"/>
+                        </svg>
+                    </div>
+                    <!-- Basketball -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" fill="#FF7043"/>
+                            <line x1="10" y1="50" x2="90" y2="50" stroke="#333" stroke-width="2"/>
+                            <line x1="50" y1="10" x2="50" y2="90" stroke="#333" stroke-width="2"/>
+                            <path d="M15,25 Q50,50 15,75" stroke="#333" stroke-width="2" fill="none"/>
+                            <path d="M85,25 Q50,50 85,75" stroke="#333" stroke-width="2" fill="none"/>
+                        </svg>
+                    </div>
+                    <!-- Tennis Racket -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="35" rx="28" ry="30" fill="none" stroke="#4CAF50" stroke-width="5"/>
+                            <rect x="46" y="60" width="8" height="30" rx="3" fill="#8D6E63"/>
+                            <line x1="30" y1="25" x2="70" y2="25" stroke="#4CAF50" stroke-width="1"/>
+                            <line x1="30" y1="35" x2="70" y2="35" stroke="#4CAF50" stroke-width="1"/>
+                            <line x1="30" y1="45" x2="70" y2="45" stroke="#4CAF50" stroke-width="1"/>
+                            <line x1="40" y1="10" x2="40" y2="60" stroke="#4CAF50" stroke-width="1"/>
+                            <line x1="50" y1="8" x2="50" y2="60" stroke="#4CAF50" stroke-width="1"/>
+                            <line x1="60" y1="10" x2="60" y2="60" stroke="#4CAF50" stroke-width="1"/>
+                        </svg>
+                    </div>
+                    <!-- Medal -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M35,10 L45,40 L55,40 L65,10" fill="#2196F3"/>
+                            <circle cx="50" cy="60" r="28" fill="#FFD54F"/>
+                            <circle cx="50" cy="60" r="22" fill="#FFC107"/>
+                            <text x="50" y="68" text-anchor="middle" fill="#FFF" font-size="20" font-weight="bold">1</text>
+                        </svg>
+                    </div>
+                    <!-- Swimming -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M10,60 Q25,50 40,60 Q55,70 70,60 Q85,50 100,60" stroke="#42A5F5" stroke-width="8" fill="none"/>
+                            <circle cx="35" cy="40" r="10" fill="#FFB74D"/>
+                            <ellipse cx="55" cy="45" rx="20" ry="8" fill="#FFB74D"/>
+                            <path d="M70,40 L85,35" stroke="#FFB74D" stroke-width="6" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <!-- Trophy -->
+                    <div class="sticker-item" data-category="sports">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M30,20 L30,50 Q30,70 50,70 Q70,70 70,50 L70,20 Z" fill="#FFD54F"/>
+                            <path d="M30,30 Q15,30 15,45 Q15,55 30,55" fill="none" stroke="#FFD54F" stroke-width="6"/>
+                            <path d="M70,30 Q85,30 85,45 Q85,55 70,55" fill="none" stroke="#FFD54F" stroke-width="6"/>
+                            <rect x="45" y="70" width="10" height="10" fill="#FFC107"/>
+                            <rect x="35" y="78" width="30" height="8" rx="2" fill="#8D6E63"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Food ===== -->
+                    <!-- Cake -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="75" rx="38" ry="12" fill="#8D6E63"/>
+                            <rect x="12" y="45" width="76" height="30" fill="#FFCC80"/>
+                            <ellipse cx="50" cy="45" rx="38" ry="12" fill="#FFCC80"/>
+                            <rect x="47" y="25" width="6" height="22" fill="#FFF"/>
+                            <ellipse cx="50" cy="22" rx="4" ry="6" fill="#FF9800"/>
+                            <circle cx="30" cy="48" r="5" fill="#E91E63"/>
+                            <circle cx="50" cy="48" r="5" fill="#E91E63"/>
+                            <circle cx="70" cy="48" r="5" fill="#E91E63"/>
+                        </svg>
+                    </div>
+                    <!-- Pizza -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M50,10 L10,85 L90,85 Z" fill="#FFB74D"/>
+                            <path d="M50,15 L15,80 L85,80 Z" fill="#FFCC80"/>
+                            <circle cx="35" cy="55" r="8" fill="#F44336"/>
+                            <circle cx="55" cy="45" r="8" fill="#F44336"/>
+                            <circle cx="65" cy="65" r="8" fill="#F44336"/>
+                            <ellipse cx="45" cy="70" rx="6" ry="4" fill="#4CAF50"/>
+                            <ellipse cx="30" cy="40" rx="4" ry="3" fill="#333"/>
+                        </svg>
+                    </div>
+                    <!-- Ice Cream -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <polygon points="35,50 65,50 50,90" fill="#FFCC80"/>
+                            <circle cx="50" cy="40" r="20" fill="#F48FB1"/>
+                            <circle cx="35" cy="35" r="12" fill="#E91E63"/>
+                            <circle cx="65" cy="35" r="12" fill="#81D4FA"/>
+                            <circle cx="50" cy="25" r="5" fill="#F44336"/>
+                        </svg>
+                    </div>
+                    <!-- Cupcake -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M25,50 L30,85 L70,85 L75,50 Z" fill="#8D6E63"/>
+                            <ellipse cx="50" cy="45" rx="30" ry="20" fill="#F48FB1"/>
+                            <circle cx="50" cy="30" r="5" fill="#F44336"/>
+                            <path d="M35,40 Q40,50 50,45 Q60,50 65,40" fill="#FCE4EC"/>
+                        </svg>
+                    </div>
+                    <!-- Coffee -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M20,35 L25,80 Q25,85 50,85 Q75,85 75,80 L80,35 Z" fill="#FFF"/>
+                            <ellipse cx="50" cy="35" rx="30" ry="10" fill="#FFF"/>
+                            <ellipse cx="50" cy="38" rx="25" ry="7" fill="#6D4C41"/>
+                            <path d="M80,45 Q95,45 95,60 Q95,75 80,75" fill="none" stroke="#FFF" stroke-width="6"/>
+                            <path d="M35,18 Q30,10 35,5" stroke="#9E9E9E" stroke-width="3" fill="none"/>
+                            <path d="M50,18 Q45,10 50,5" stroke="#9E9E9E" stroke-width="3" fill="none"/>
+                            <path d="M65,18 Q60,10 65,5" stroke="#9E9E9E" stroke-width="3" fill="none"/>
+                        </svg>
+                    </div>
+                    <!-- Donut -->
+                    <div class="sticker-item" data-category="food">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="38" fill="#FFCC80"/>
+                            <circle cx="50" cy="50" r="35" fill="#F48FB1"/>
+                            <circle cx="50" cy="50" r="12" fill="#FFCC80"/>
+                            <circle cx="35" cy="40" r="4" fill="#FFD54F"/>
+                            <circle cx="55" cy="35" r="4" fill="#4CAF50"/>
+                            <circle cx="65" cy="50" r="4" fill="#2196F3"/>
+                            <circle cx="55" cy="65" r="4" fill="#F44336"/>
+                            <circle cx="35" cy="60" r="4" fill="#9C27B0"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Holidays ===== -->
+                    <!-- Christmas Tree -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="42" y="75" width="16" height="15" fill="#8D6E63"/>
+                            <polygon points="50,10 20,45 80,45" fill="#4CAF50"/>
+                            <polygon points="50,25 25,60 75,60" fill="#4CAF50"/>
+                            <polygon points="50,40 30,75 70,75" fill="#4CAF50"/>
+                            <polygon points="50,5 45,15 55,15" fill="#FFD54F"/>
+                            <circle cx="40" cy="50" r="4" fill="#F44336"/>
+                            <circle cx="60" cy="55" r="4" fill="#2196F3"/>
+                            <circle cx="45" cy="68" r="4" fill="#FFD54F"/>
+                        </svg>
+                    </div>
+                    <!-- Gift Box -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <rect x="15" y="40" width="70" height="50" fill="#E91E63"/>
+                            <rect x="10" y="30" width="80" height="15" fill="#C2185B"/>
+                            <rect x="45" y="30" width="10" height="60" fill="#FFD54F"/>
+                            <rect x="10" y="33" width="80" height="8" fill="#FFD54F"/>
+                            <path d="M50,30 Q35,20 40,10 Q45,5 50,15" fill="#FFD54F"/>
+                            <path d="M50,30 Q65,20 60,10 Q55,5 50,15" fill="#FFD54F"/>
+                        </svg>
+                    </div>
+                    <!-- Easter Egg -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="55" rx="30" ry="38" fill="#81D4FA"/>
+                            <path d="M20,45 Q50,35 80,45" stroke="#E91E63" stroke-width="5" fill="none"/>
+                            <path d="M20,60 Q50,70 80,60" stroke="#FFD54F" stroke-width="5" fill="none"/>
+                            <circle cx="35" cy="50" r="5" fill="#4CAF50"/>
+                            <circle cx="65" cy="50" r="5" fill="#9C27B0"/>
+                            <circle cx="50" cy="70" r="5" fill="#FF9800"/>
+                        </svg>
+                    </div>
+                    <!-- Pumpkin -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="55" rx="35" ry="32" fill="#FF9800"/>
+                            <ellipse cx="30" cy="55" rx="15" ry="30" fill="#FF9800"/>
+                            <ellipse cx="70" cy="55" rx="15" ry="30" fill="#FF9800"/>
+                            <path d="M50,25 Q55,10 50,5" stroke="#4CAF50" stroke-width="5" fill="none"/>
+                            <ellipse cx="45" cy="8" rx="10" ry="5" fill="#4CAF50"/>
+                            <polygon points="35,50 40,55 35,60" fill="#333"/>
+                            <polygon points="65,50 60,55 65,60" fill="#333"/>
+                            <path d="M35,70 Q50,80 65,70" stroke="#333" stroke-width="3" fill="none"/>
+                        </svg>
+                    </div>
+                    <!-- Heart -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <path d="M50,88 C20,65 5,45 5,30 C5,15 20,5 35,5 C42,5 48,10 50,15 C52,10 58,5 65,5 C80,5 95,15 95,30 C95,45 80,65 50,88" fill="#E91E63"/>
+                        </svg>
+                    </div>
+                    <!-- Balloon -->
+                    <div class="sticker-item" data-category="holidays">
+                        <svg viewBox="0 0 100 100">
+                            <ellipse cx="50" cy="40" rx="25" ry="32" fill="#E91E63"/>
+                            <ellipse cx="42" cy="30" rx="8" ry="10" fill="rgba(255,255,255,0.3)"/>
+                            <polygon points="50,72 45,78 55,78" fill="#E91E63"/>
+                            <path d="M50,78 Q45,85 50,90 Q55,95 50,100" stroke="#666" stroke-width="1.5" fill="none"/>
+                        </svg>
+                    </div>
+
+                    <!-- ===== Happy Faces ===== -->
+                    <!-- Happy -->
+                    <div class="sticker-item" data-category="all">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#FFD93D"/>
+                            <circle cx="35" cy="40" r="6" fill="#333"/>
+                            <circle cx="65" cy="40" r="6" fill="#333"/>
+                            <path d="M25 55 Q50 80 75 55" stroke="#333" stroke-width="4" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <!-- Wink -->
+                    <div class="sticker-item" data-category="all">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#FFD93D"/>
+                            <circle cx="35" cy="40" r="6" fill="#333"/>
+                            <path d="M60,40 Q65,38 70,40" stroke="#333" stroke-width="4" fill="none"/>
+                            <path d="M30 60 Q50 75 70 60" stroke="#333" stroke-width="4" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <!-- Love -->
+                    <div class="sticker-item" data-category="all">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="#FFD93D"/>
+                            <path d="M30,42 C25,35 35,30 35,38 C35,30 45,35 40,42 L35,48 Z" fill="#E91E63"/>
+                            <path d="M60,42 C55,35 65,30 65,38 C65,30 75,35 70,42 L65,48 Z" fill="#E91E63"/>
+                            <path d="M30 60 Q50 75 70 60" stroke="#333" stroke-width="4" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frames Tab -->
+            <div class="tab-content" id="tab-frames">
+                <div class="frame-grid">
+                    <div class="frame-item selected">
+                        <div class="frame-preview" style="border: none;"></div>
+                        <div class="frame-name">No Frame</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.2);"></div>
+                        <div class="frame-name">Classic White</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid #333;"></div>
+                        <div class="frame-name">Classic Black</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 6px solid #fff; border-bottom: 25px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.2);"></div>
+                        <div class="frame-name">Polaroid</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid #8b7355; box-shadow: inset 0 0 0 2px #d4a574;"></div>
+                        <div class="frame-name">Vintage Gold</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid #5D4037; box-shadow: inset 0 0 0 2px #8D6E63;"></div>
+                        <div class="frame-name">Wood Brown</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 6px solid #C0C0C0; box-shadow: inset 0 0 0 2px #E8E8E8;"></div>
+                        <div class="frame-name">Silver</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border-radius: 50%; width: 60px; height: 60px; margin: 0 auto 10px;"></div>
+                        <div class="frame-name">Circle</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border-radius: 15px;"></div>
+                        <div class="frame-name">Rounded</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border-radius: 50% 0 50% 0;"></div>
+                        <div class="frame-name">Leaf</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="box-shadow: 6px 6px 0 #333;"></div>
+                        <div class="frame-name">Hard Shadow</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);"></div>
+                        <div class="frame-name">Soft Shadow</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 4px double #333;"></div>
+                        <div class="frame-name">Double Line</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 3px dashed #667eea;"></div>
+                        <div class="frame-name">Dashed</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 3px dotted #E91E63;"></div>
+                        <div class="frame-name">Dotted</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid transparent; border-image: linear-gradient(45deg, #667eea, #764ba2) 1;"></div>
+                        <div class="frame-name">Gradient</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="border: 8px solid transparent; border-image: linear-gradient(45deg, #FFD54F, #FF9800) 1;"></div>
+                        <div class="frame-name">Sunset</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="transform: rotate(3deg); border: 5px solid #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"></div>
+                        <div class="frame-name">Tilted</div>
+                    </div>
+                    <div class="frame-item">
+                        <div class="frame-preview" style="clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%);"></div>
+                        <div class="frame-name">Slant</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backgrounds Tab -->
+            <div class="tab-content" id="tab-backgrounds">
+                <!-- Custom Background Upload -->
+                <div class="bg-section">
+                    <div class="bg-section-title">Custom Backgrounds</div>
+                    <div class="bg-upload-area" id="bgUploadArea" onclick="document.getElementById('bgInput').click()">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                        <div class="bg-upload-text">Drop image here or click to upload</div>
+                    </div>
+                    <input type="file" id="bgInput" style="display: none;" accept="image/*" multiple>
+                    <div class="custom-bg-grid" id="customBgGrid"></div>
+                </div>
+
+                <div class="bg-section">
+                    <div class="bg-section-title">Solid Colors</div>
+                    <div class="bg-grid">
+                        <div class="bg-item selected" style="background: #fff;" data-bg="#fff"></div>
+                        <div class="bg-item" style="background: #f5f5f5;" data-bg="#f5f5f5"></div>
+                        <div class="bg-item" style="background: #e8e8e8;" data-bg="#e8e8e8"></div>
+                        <div class="bg-item" style="background: #333;" data-bg="#333"></div>
+                        <div class="bg-item" style="background: #ffe4e1;" data-bg="#ffe4e1"></div>
+                        <div class="bg-item" style="background: #ffcdd2;" data-bg="#ffcdd2"></div>
+                        <div class="bg-item" style="background: #f8bbd9;" data-bg="#f8bbd9"></div>
+                        <div class="bg-item" style="background: #e1f5fe;" data-bg="#e1f5fe"></div>
+                        <div class="bg-item" style="background: #b3e5fc;" data-bg="#b3e5fc"></div>
+                        <div class="bg-item" style="background: #bbdefb;" data-bg="#bbdefb"></div>
+                        <div class="bg-item" style="background: #f1f8e9;" data-bg="#f1f8e9"></div>
+                        <div class="bg-item" style="background: #c8e6c9;" data-bg="#c8e6c9"></div>
+                        <div class="bg-item" style="background: #dcedc8;" data-bg="#dcedc8"></div>
+                        <div class="bg-item" style="background: #fff8e1;" data-bg="#fff8e1"></div>
+                        <div class="bg-item" style="background: #ffecb3;" data-bg="#ffecb3"></div>
+                        <div class="bg-item" style="background: #ffe0b2;" data-bg="#ffe0b2"></div>
+                        <div class="bg-item" style="background: #fce4ec;" data-bg="#fce4ec"></div>
+                        <div class="bg-item" style="background: #e8eaf6;" data-bg="#e8eaf6"></div>
+                        <div class="bg-item" style="background: #ede7f6;" data-bg="#ede7f6"></div>
+                        <div class="bg-item" style="background: #e0f7fa;" data-bg="#e0f7fa"></div>
+                        <div class="bg-item" style="background: #f3e5f5;" data-bg="#f3e5f5"></div>
+                        <div class="bg-item" style="background: #fbe9e7;" data-bg="#fbe9e7"></div>
+                        <div class="bg-item" style="background: #efebe9;" data-bg="#efebe9"></div>
+                        <div class="bg-item" style="background: #eceff1;" data-bg="#eceff1"></div>
+                    </div>
+                </div>
+
+                <div class="bg-section">
+                    <div class="bg-section-title">Gradients</div>
+                    <div class="bg-grid">
+                        <div class="bg-item" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #43e97b, #38f9d7);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #fa709a, #fee140);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #a18cd1, #fbc2eb);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #ffecd2, #fcb69f);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #ff9a9e, #fecfef);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #a1c4fd, #c2e9fb);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #d4fc79, #96e6a1);"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #fbc2eb, #a6c1ee);"></div>
+                        <div class="bg-item" style="background: linear-gradient(180deg, #fff, #e8e8e8);"></div>
+                    </div>
+                </div>
+
+                <div class="bg-section">
+                    <div class="bg-section-title">Patterns</div>
+                    <div class="bg-grid">
+                        <div class="bg-item" style="background: repeating-linear-gradient(45deg, #fff, #fff 10px, #f0f0f0 10px, #f0f0f0 20px);"></div>
+                        <div class="bg-item" style="background: repeating-linear-gradient(-45deg, #fff, #fff 10px, #fce4ec 10px, #fce4ec 20px);"></div>
+                        <div class="bg-item" style="background: radial-gradient(circle, #f0f0f0 2px, #fff 2px); background-size: 15px 15px;"></div>
+                        <div class="bg-item" style="background: radial-gradient(circle, #fce4ec 3px, #fff 3px); background-size: 20px 20px;"></div>
+                        <div class="bg-item" style="background: linear-gradient(90deg, #fff 50%, #f5f5f5 50%); background-size: 20px 20px;"></div>
+                        <div class="bg-item" style="background: repeating-linear-gradient(0deg, #fff, #fff 5px, #fce4ec 5px, #fce4ec 10px);"></div>
+                        <div class="bg-item" style="background: repeating-linear-gradient(0deg, #fff, #fff 5px, #e1f5fe 5px, #e1f5fe 10px);"></div>
+                        <div class="bg-item" style="background: linear-gradient(90deg, transparent 50%, rgba(102,126,234,0.1) 50%), linear-gradient(0deg, transparent 50%, rgba(102,126,234,0.1) 50%); background-size: 20px 20px;"></div>
+                        <div class="bg-item" style="background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.03) 10px, rgba(0,0,0,0.03) 20px);"></div>
+                        <div class="bg-item" style="background: radial-gradient(ellipse at top left, #fce4ec 0%, #fff 50%, #e8eaf6 100%);"></div>
+                        <div class="bg-item" style="background: conic-gradient(from 0deg, #fff, #f5f5f5, #fff, #f5f5f5, #fff); background-size: 30px 30px;"></div>
+                        <div class="bg-item" style="background: linear-gradient(135deg, #667eea20, #764ba220);"></div>
+                    </div>
+                </div>
+
+                <div class="opacity-control">
+                    <span class="control-label" style="color: #fff;">Background Opacity</span>
+                    <input type="range" class="opacity-slider" min="0" max="100" value="100">
+                    <span class="opacity-value">100%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ Tab switching ============
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ============ Theme switching ============
+        const themeSwitch = document.getElementById('themeSwitch');
+        const THEME_KEY = 'photobook_theme';
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-theme');
+            themeSwitch.classList.add('light');
+        }
+
+        themeSwitch.addEventListener('click', () => {
+            document.body.classList.toggle('light-theme');
+            themeSwitch.classList.toggle('light');
+            localStorage.setItem(THEME_KEY, document.body.classList.contains('light-theme') ? 'light' : 'dark');
+        });
+
+        // ============ Category switching with filtering ============
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const category = btn.textContent.toLowerCase();
+                const stickers = document.querySelectorAll('.sticker-item');
+
+                stickers.forEach(sticker => {
+                    const stickerCategory = sticker.dataset.category;
+                    if (category === 'all' || stickerCategory === category || stickerCategory === 'all') {
+                        sticker.style.display = 'flex';
+                    } else {
+                        sticker.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // ============ Background selection ============
+        document.querySelectorAll('.bg-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.bg-item, .custom-bg-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                const pageContent = document.getElementById('pageContent');
+                pageContent.style.background = item.style.background;
+                pageContent.style.backgroundSize = item.style.backgroundSize || 'auto';
+            });
+        });
+
+        // ============ Frame selection ============
+        document.querySelectorAll('.frame-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.frame-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+            });
+        });
+
+        // ============ Opacity slider ============
+        document.querySelector('.opacity-slider').addEventListener('input', (e) => {
+            document.querySelector('.opacity-value').textContent = e.target.value + '%';
+            document.getElementById('pageContent').style.opacity = e.target.value / 100;
+        });
+
+        // ============ Sticker click to add ============
+        document.querySelectorAll('.sticker-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const svg = item.querySelector('svg').cloneNode(true);
+                svg.classList.add('sticker-element');
+                svg.style.width = '60px';
+                svg.style.top = '50%';
+                svg.style.left = '50%';
+                svg.style.transform = 'translate(-50%, -50%)';
+                document.getElementById('pageContent').appendChild(svg);
+            });
+        });
+
+        // ============ Resizable Tools Panel ============
+        const resizeHandle = document.getElementById('resizeHandle');
+        const toolsPanel = document.getElementById('toolsPanel');
+        let isResizing = false;
+        let startY, startHeight;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startY = e.clientY;
+            startHeight = toolsPanel.offsetHeight;
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const deltaY = startY - e.clientY;
+            const newHeight = Math.min(Math.max(startHeight + deltaY, 150), window.innerHeight * 0.7);
+            toolsPanel.style.height = newHeight + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // ============ Custom Background Upload ============
+        const bgUploadArea = document.getElementById('bgUploadArea');
+        const bgInput = document.getElementById('bgInput');
+        const customBgGrid = document.getElementById('customBgGrid');
+        const BG_STORAGE_KEY = 'photobook_custom_backgrounds';
+
+        // Load saved backgrounds
+        loadCustomBackgrounds();
+
+        // Drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            bgUploadArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            bgUploadArea.addEventListener(eventName, () => bgUploadArea.classList.add('drag-over'));
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            bgUploadArea.addEventListener(eventName, () => bgUploadArea.classList.remove('drag-over'));
+        });
+
+        bgUploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            handleBgFiles(files);
+        });
+
+        bgInput.addEventListener('change', (e) => {
+            handleBgFiles(e.target.files);
+            bgInput.value = '';
+        });
+
+        function handleBgFiles(files) {
+            [...files].forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const bg = {
+                        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        data: e.target.result
+                    };
+                    const backgrounds = getStoredBackgrounds();
+                    backgrounds.push(bg);
+                    saveBackgrounds(backgrounds);
+                    renderCustomBackgrounds(backgrounds);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function getStoredBackgrounds() {
+            try {
+                return JSON.parse(localStorage.getItem(BG_STORAGE_KEY)) || [];
+            } catch { return []; }
+        }
+
+        function saveBackgrounds(bgs) {
+            try {
+                localStorage.setItem(BG_STORAGE_KEY, JSON.stringify(bgs));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError') {
+                    alert('Storage full. Please delete some backgrounds.');
+                }
+            }
+        }
+
+        function loadCustomBackgrounds() {
+            renderCustomBackgrounds(getStoredBackgrounds());
+        }
+
+        function renderCustomBackgrounds(backgrounds) {
+            customBgGrid.innerHTML = '';
+            backgrounds.forEach(bg => {
+                const item = document.createElement('div');
+                item.className = 'custom-bg-item';
+                item.style.backgroundImage = `url(${bg.data})`;
+                item.innerHTML = `<button class="delete-bg" onclick="deleteBackground('${bg.id}', event)">×</button>`;
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.bg-item, .custom-bg-item').forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    const pageContent = document.getElementById('pageContent');
+                    pageContent.style.background = `url(${bg.data})`;
+                    pageContent.style.backgroundSize = 'cover';
+                    pageContent.style.backgroundPosition = 'center';
+                });
+                customBgGrid.appendChild(item);
+            });
+        }
+
+        function deleteBackground(id, event) {
+            event.stopPropagation();
+            const backgrounds = getStoredBackgrounds().filter(b => b.id !== id);
+            saveBackgrounds(backgrounds);
+            renderCustomBackgrounds(backgrounds);
+        }
+    </script>
+</body>
+</html>
