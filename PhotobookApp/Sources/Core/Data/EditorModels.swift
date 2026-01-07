@@ -47,6 +47,31 @@ public struct PhotoLayer: LayerProtocol {
     public var normalizedCropRect: CGRect? // Stores relative crop area (0-1) for re-editing
     public var cropRotation: Double = 0.0 // Corrective rotation inside editor
     
+    // Filter properties (Added for Phase 2.1)
+    public var filterType: FilterType = .none
+    public var brightness: Double = 0.0 // -1 to 1
+    public var contrast: Double = 1.0 // 0.5 to 2
+    public var saturation: Double = 1.0 // 0 to 2
+    
+    // Border & Shadow properties (Added for Phase 2.1)
+    public var borderWidth: Double = 0.0 // 0 to 20
+    public var borderColorHex: String = "#FFFFFF" // Hex color for serialization
+    public var shadowRadius: Double = 0.0 // 0 to 30
+    public var shadowOpacity: Double = 0.5 // 0 to 1
+    
+    public enum FilterType: String, Codable, CaseIterable, Sendable {
+        case none = "原图"
+        case blackAndWhite = "黑白"
+        case sepia = "复古"
+        case chrome = "铬黄"
+        case fade = "褪色"
+        case instant = "即时"
+        case noir = "黑色电影"
+        case process = "冲印"
+        case tonal = "单色调"
+        case transfer = "转印"
+    }
+    
     public enum MaskType: String, Codable {
         case rectangle
         case circle

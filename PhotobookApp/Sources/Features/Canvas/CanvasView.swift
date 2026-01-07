@@ -193,6 +193,44 @@ struct BookPage: View {
                     )
                 } 
             }
+            // MARK: - Filter Modal
+            .sheet(item: Binding(
+                get: {
+                    if let id = editorState.filteringLayerId {
+                        if let found = editorState.leftPage.layers.first(where: { $0.id == id }) {
+                            return found
+                        }
+                        if let found = editorState.rightPage.layers.first(where: { $0.id == id }) {
+                            return found
+                        }
+                    }
+                    return nil
+                },
+                set: { (wrapper: AnyLayer?) in
+                    if wrapper == nil {
+                        editorState.endFiltering()
+                    }
+                }
+            )) { wrapper in
+                if let photoLayer = wrapper.layer as? PhotoLayer {
+                    FilterEditor(
+                        layer: photoLayer,
+                        onSave: { filterType, brightness, contrast, saturation in
+                            editorState.updateLayerFilter(
+                                id: photoLayer.id,
+                                filterType: filterType,
+                                brightness: brightness,
+                                contrast: contrast,
+                                saturation: saturation
+                            )
+                            editorState.endFiltering()
+                        },
+                        onCancel: {
+                            editorState.endFiltering()
+                        }
+                    )
+                }
+            }
             // MARK: - Drop Handling
             .dropDestination(for: URL.self) { items, location in
                 guard let url = items.first else { return false }
@@ -210,22 +248,72 @@ struct BookPage: View {
 struct PhotoLayerElement: View {
     let layer: PhotoLayer
     
+    @State private var filteredImage: NSImage?
+    
     var body: some View {
-        AsyncImage(url: layer.photoUrl) { image in
-            image.resizable()
-                .aspectRatio(contentMode: .fill)
-                // 1. Apply Corrective (Internal) Crop Rotation
-                .rotationEffect(.degrees(layer.cropRotation))
-                // 2. Apply Custom Crop Region
-                .scaleEffect(layer.cropScale)
-                .offset(layer.cropOffset)
-        } placeholder: {
-            Color.gray.opacity(0.3)
+        Group {
+            if let filtered = filteredImage {
+                // Use pre-filtered image
+                Image(nsImage: filtered)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .rotationEffect(.degrees(layer.cropRotation))
+                    .scaleEffect(layer.cropScale)
+                    .offset(layer.cropOffset)
+            } else {
+                // Fallback to async loading
+                AsyncImage(url: layer.photoUrl) { image in
+                    image.resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .rotationEffect(.degrees(layer.cropRotation))
+                        .scaleEffect(layer.cropScale)
+                        .offset(layer.cropOffset)
+                } placeholder: {
+                    Color.gray.opacity(0.3)
+                }
+            }
         }
         .frame(width: layer.frame.width, height: layer.frame.height)
         .contentShape(Rectangle())
         .clipped()
+        // Apply border
+        .overlay(
+            RoundedRectangle(cornerRadius: 0)
+                .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
+        )
+        // Apply shadow
+        .shadow(
+            color: Color.black.opacity(layer.shadowOpacity),
+            radius: layer.shadowRadius,
+            x: 0,
+            y: layer.shadowRadius / 3
+        )
         .allowsHitTesting(false)
+        .onAppear {
+            loadFilteredImage()
+        }
+        .onChange(of: layer.filterType) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.brightness) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.contrast) { _, _ in loadFilteredImage() }
+        .onChange(of: layer.saturation) { _, _ in loadFilteredImage() }
+    }
+    
+    private func loadFilteredImage() {
+        // Only apply filter if needed
+        guard layer.filterType != .none || layer.brightness != 0 || layer.contrast != 1 || layer.saturation != 1 else {
+            filteredImage = nil
+            return
+        }
+        
+        Task {
+            filteredImage = await generateFilteredImage(
+                from: layer.photoUrl,
+                filter: layer.filterType,
+                brightness: layer.brightness,
+                contrast: layer.contrast,
+                saturation: layer.saturation
+            )
+        }
     }
 }
 
@@ -392,6 +480,13 @@ struct InteractiveLayer: View {
                     editorState.startCropping(photoLayer.id)
                 } label: {
                     Label("裁剪", systemImage: "crop")
+                }
+                
+                // Filter
+                Button {
+                    editorState.startFiltering(photoLayer.id)
+                } label: {
+                    Label("滤镜", systemImage: "camera.filters")
                 }
                 
                 // 删除

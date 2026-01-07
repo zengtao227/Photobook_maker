@@ -44,6 +44,46 @@ public class EditorState {
         }
     }
     
+    // MARK: - Filter Editing
+    
+    var filteringLayerId: LayerID? = nil
+    
+    func startFiltering(_ id: LayerID) {
+        filteringLayerId = id
+    }
+    
+    func endFiltering() {
+        filteringLayerId = nil
+    }
+    
+    func updateLayerFilter(id: LayerID, filterType: PhotoLayer.FilterType, brightness: Double, contrast: Double, saturation: Double) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.filterType = filterType
+            layer.brightness = brightness
+            layer.contrast = contrast
+            layer.saturation = saturation
+            updateLayer(layer)
+        }
+    }
+    
+    // MARK: - Border & Shadow
+    
+    func updateLayerBorder(id: LayerID, borderWidth: Double, borderColorHex: String) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.borderWidth = borderWidth
+            layer.borderColorHex = borderColorHex
+            updateLayer(layer)
+        }
+    }
+    
+    func updateLayerShadow(id: LayerID, shadowRadius: Double, shadowOpacity: Double) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.shadowRadius = shadowRadius
+            layer.shadowOpacity = shadowOpacity
+            updateLayer(layer)
+        }
+    }
+    
     // MARK: - Layer Helpers
     
     private func findLayer(_ id: LayerID) -> (any LayerProtocol)? {

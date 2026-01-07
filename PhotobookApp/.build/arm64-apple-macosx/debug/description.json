@@ -60,6 +60,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/FilterEditor.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift"
         },
         {
@@ -140,6 +144,7 @@
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CanvasView.swift.o",
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/EditorState.swift.o",
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/CropEditor.swift.o",
+        "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/FilterEditor.swift.o",
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay.swift.o",
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/MacTextField.swift.o",
         "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/InspectorPanel.swift.o",
@@ -233,6 +238,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/FilterEditor.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/SelectionOverlay.swift.o"
         },
         {
@@ -307,6 +316,7 @@
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/CanvasView.swift",
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/EditorState.swift",
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/CropEditor.swift",
+        "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/FilterEditor.swift",
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift",
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Common/MacTextField.swift",
         "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Inspector/InspectorPanel.swift",
@@ -348,6 +358,7 @@
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/CanvasView.swift",
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/EditorState.swift",
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/CropEditor.swift",
+      "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/FilterEditor.swift",
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift",
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Common/MacTextField.swift",
       "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Inspector/InspectorPanel.swift",
@@ -478,6 +489,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/FilterEditor.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/zengtao/Photobooks/PhotobookApp/Sources/Features/Canvas/Interactions/SelectionOverlay.swift"
         },
         {
@@ -577,6 +592,10 @@
         {
           "kind" : "file",
           "name" : "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/EditorState.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/zengtao/Photobooks/PhotobookApp/.build/arm64-apple-macosx/debug/PhotobookApp.build/FilterEditor.swift.o"
         },
         {
           "kind" : "file",
