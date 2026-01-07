@@ -41,6 +41,10 @@ public struct PhotoLayer: LayerProtocol {
     public let photoUrl: URL // Cached URL for quick access
     public var maskType: MaskType = .rectangle
     
+    // Crop properties (Added for Phase 2.1)
+    public var cropScale: Double = 1.0
+    public var cropOffset: CGSize = .zero
+    
     public enum MaskType: String, Codable {
         case rectangle
         case circle
