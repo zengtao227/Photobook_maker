@@ -144,6 +144,55 @@ struct BookPage: View {
                 editorState.deleteSelectedLayer()
                 return .handled
             }
+            // MARK: - Full Screen Crop Modal
+            // We use fullScreenCover to provide a dedicated editing environment
+            // mimicking standard tools like Mantis or Apple Photos.
+            // MARK: - Crop Modal
+            // Use .sheet for macOS compatibility
+            .sheet(item: Binding(
+                get: {
+                    if let id = editorState.croppingLayerId {
+                        // Manual Lookup since helper is missing
+                        if let found = editorState.leftPage.layers.first(where: { $0.id == id }) {
+                            return found
+                        }
+                        if let found = editorState.rightPage.layers.first(where: { $0.id == id }) {
+                            return found
+                        }
+                    }
+                    return nil
+                },
+                set: { (wrapper: AnyLayer?) in
+                    if wrapper == nil {
+                        editorState.endCropping()
+                    }
+                }
+            )) { wrapper in
+                if let photoLayer = wrapper.layer as? PhotoLayer {
+                    CropEditor(
+                        layer: photoLayer,
+                        onSave: { scale, offset, newFrame, cropRotation, newNormalizedRect in
+                            // 1. Update Layout
+                            if let frame = newFrame {
+                                editorState.updateLayerFrame(photoLayer.id, newFrame: frame)
+                            }
+                            // 2. Update Crop & INTERNAL Rotation
+                            editorState.updateLayerCrop(
+                                id: photoLayer.id, 
+                                scale: scale, 
+                                offset: offset, 
+                                normalizedRect: newNormalizedRect,
+                                cropRotation: cropRotation
+                            )
+                            // 3. Close
+                            editorState.endCropping()
+                        },
+                        onCancel: {
+                            editorState.endCropping()
+                        }
+                    )
+                } 
+            }
             // MARK: - Drop Handling
             .dropDestination(for: URL.self) { items, location in
                 guard let url = items.first else { return false }
@@ -155,6 +204,28 @@ struct BookPage: View {
                 return false
             }
         }
+    }
+}
+
+struct PhotoLayerElement: View {
+    let layer: PhotoLayer
+    
+    var body: some View {
+        AsyncImage(url: layer.photoUrl) { image in
+            image.resizable()
+                .aspectRatio(contentMode: .fill)
+                // 1. Apply Corrective (Internal) Crop Rotation
+                .rotationEffect(.degrees(layer.cropRotation))
+                // 2. Apply Custom Crop Region
+                .scaleEffect(layer.cropScale)
+                .offset(layer.cropOffset)
+        } placeholder: {
+            Color.gray.opacity(0.3)
+        }
+        .frame(width: layer.frame.width, height: layer.frame.height)
+        .contentShape(Rectangle())
+        .clipped()
+        .allowsHitTesting(false)
     }
 }
 
@@ -186,99 +257,105 @@ struct InteractiveLayer: View {
             let displayFrame = currentDisplayFrame(for: photoLayer)
             let rotation = currentRotation(for: photoLayer)
             let isSelected = editorState.selectedLayerId == photoLayer.id
+            let isCropping = editorState.croppingLayerId == photoLayer.id
             
             ZStack {
-                // 1. The Photo Content
-                PhotoLayerElement(layer: photoLayer)
-                    .frame(width: displayFrame.width, height: displayFrame.height)
-                    .clipped()
-                    .contentShape(Rectangle()) // Hit test for move gesture
-                
-                // 2. The Selection Border & Handles (Sibling)
-                if isSelected {
-                    SelectionBorder(
-                        frame: Binding(
-                            get: { displayFrame },
-                            set: { self.transientFrame = $0 }
-                        ),
-                        rotation: Binding(
-                            get: { rotation },
-                            set: { self.transientRotation = $0 }
-                        ),
-                        onCommitFrame: {
-                            if let finalFrame = transientFrame {
-                                editorState.updateLayerFrame(photoLayer.id, newFrame: finalFrame)
-                                transientFrame = nil
+                if isCropping {
+                    // CROP MODE ACTIVE (Handled by Global FullScreenCover)
+                    // We just show a placeholder or the original image dimmed
+                    PhotoLayerElement(layer: photoLayer)
+                        .frame(width: displayFrame.width, height: displayFrame.height)
+                        .clipped()
+                        .opacity(0.3) // Dim it to show it's being edited elsewhere
+                        .allowsHitTesting(false)
+                } else {
+                    // NORMAL MODE
+                    
+                    // 1. The Photo Content
+                    PhotoLayerElement(layer: photoLayer)
+                        .frame(width: displayFrame.width, height: displayFrame.height)
+                        .clipped() // Clip in normal mode
+                        .contentShape(Rectangle()) // Hit test for move gesture
+                    
+                    // 2. The Selection Border & Handles (Sibling)
+                    if isSelected {
+                        SelectionBorder(
+                            frame: Binding(
+                                get: { displayFrame },
+                                set: { self.transientFrame = $0 }
+                            ),
+                            rotation: Binding(
+                                get: { rotation },
+                                set: { self.transientRotation = $0 }
+                            ),
+                            onCommitFrame: {
+                                if let finalFrame = transientFrame {
+                                    editorState.updateLayerFrame(photoLayer.id, newFrame: finalFrame)
+                                    transientFrame = nil
+                                }
+                            },
+                            onCommitRotation: {
+                                if let finalRot = transientRotation {
+                                    editorState.updateLayerRotation(photoLayer.id, newRotation: finalRot)
+                                    transientRotation = nil
+                                }
                             }
-                        },
-                        onCommitRotation: {
-                            if let finalRot = transientRotation {
-                                editorState.updateLayerRotation(photoLayer.id, newRotation: finalRot)
-                                transientRotation = nil
-                            }
-                        }
-                    )
-                    .frame(width: displayFrame.width, height: displayFrame.height)
+                        )
+                        .frame(width: displayFrame.width, height: displayFrame.height)
+                    }
                 }
             }
             // Center point of the layer
             .position(x: displayFrame.midX, y: displayFrame.midY) 
-            // APPLY ROTATION HERE - Affects both visual and hit testing coordinate space?
-            // SwiftUI .rotationEffect rotates the view visual but maintains the original frame for layout.
-            // However, gestures *inside* the view (like Tap) rotate with it.
-            // Gestures *on* the view (like Drag attached relative to parent) might need coordinate conversion.
-            // Since our DragGesture handles are INSIDE the rotated view (ZStack), they should rotate with it.
-            // BUT the 'DragGesture' translation values will be in the LOCAL coordinate space of the rotated view?
-            // No, DragGesture usually reports in global or parent space depending on setup.
-            // Let's stick to standard SwiftUI behavior: Rotate the whole container.
             .rotationEffect(Angle(degrees: rotation), anchor: .center)
+            .zIndex(isCropping ? 9999 : (Double(photoLayer.zIndex) + (isSelected ? 100 : 0)))
             
             // MARK: - Gestures
             
-            // 1. Tap to Select
-            .simultaneousGesture(
-                TapGesture()
+            // Priority: Double Tap > Drag > Single Tap
+            
+            // 1. Double Tap to Crop (High Priority)
+            .highPriorityGesture(
+                TapGesture(count: 2)
                     .onEnded {
-                        print("DEBUG: Layer \(photoLayer.id) tapped")
-                        editorState.selectLayer(photoLayer.id)
+                        editorState.startCropping(photoLayer.id)
                     }
             )
             
-            // 2. Drag to Move (Only if selected)
-            // Note: If rotated, the x/y translation needs to be rotated matches the parent coordinate space??
-            // Wait, if we use .position() we are placing in PARENT space.
-            // If we rotate the view, the axes rotate. 
-            // If the user drags UP on screen, they expect the layer to move UP on screen (Parent Y-).
-            // But if layer is rotated 90deg, "UP" in local space is "LEFT".
-            // DragGesture translation is in the coordinate space of the view it is attached to.
-            // If attached HERE (outside rotationEffect), it is in parent space.
-            // If attached INSIDE (before rotationEffect), it is in local space.
-            // We want MOVE to be in PARENT space (Screen-aligned).
-            // So we attach DragGesture AFTER rotation.
-            // BUT SwiftUI gesture composition is tricky order-wise.
+            // 2. Drag to Move (Normal Priority, but blocked by high priority double tap if it fails?)
+            // Actually, DragGesture usually overrides Tap. 
+            // So we leave Drag as standard .gesture
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
-                        guard isSelected else { return }
+                        guard isSelected, !isCropping else { return }
                         
-                        // Initialize transient frame if needed
                         if transientFrame == nil {
                             transientFrame = photoLayer.frame
                         }
                         
                         let originFrame = photoLayer.frame
                         var newFrame = originFrame
-                        // Since we are moving the .position() (Parent Space), we just add the drag translation (Parent Space)
                         newFrame.origin.x += value.translation.width
                         newFrame.origin.y += value.translation.height
                         
                         transientFrame = newFrame
                     }
                     .onEnded { _ in
-                        guard isSelected else { return }
+                        guard isSelected, !isCropping else { return }
                         if let finalFrame = transientFrame {
                             editorState.updateLayerFrame(photoLayer.id, newFrame: finalFrame)
                             transientFrame = nil
+                        }
+                    }
+            )
+            
+            // 3. Single Tap to Select (Simultaneous)
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded {
+                        if !isCropping {
+                            editorState.selectLayer(photoLayer.id)
                         }
                     }
             )
@@ -310,6 +387,13 @@ struct InteractiveLayer: View {
                 
                 Divider()
                 
+                // Crop
+                 Button {
+                    editorState.startCropping(photoLayer.id)
+                } label: {
+                    Label("裁剪", systemImage: "crop")
+                }
+                
                 // 删除
                 Button(role: .destructive) {
                     editorState.deleteSelectedLayer()
@@ -324,6 +408,7 @@ struct InteractiveLayer: View {
 struct SelectionBorder: View {
     @Binding var frame: CGRect
     @Binding var rotation: Double
+    var lockAspectRatio: Bool = true // Photos should scale proportionally
     var onCommitFrame: () -> Void
     var onCommitRotation: () -> Void
     
@@ -351,41 +436,19 @@ struct SelectionBorder: View {
             Circle()
                 .fill(Color.white)
                 .overlay(Circle().stroke(Color.blue, lineWidth: 2))
-                .frame(width: 20, height: 20)
-                // Expanded Hit Area
+                .frame(width: 24, height: 24)
                 .background(Color.black.opacity(0.001).frame(width: 44, height: 44))
-                .offset(y: -(frame.height/2 + 30)) // Stick out 30px from center
+                .offset(y: -(frame.height/2 + 32)) 
                 .gesture(
-                    DragGesture()
+                    DragGesture(coordinateSpace: .global)
                         .onChanged { value in
                             if innerInitialRotation == nil {
                                 innerInitialRotation = rotation
                             }
-                            // Calculate angle logic
-                            // We need the center of the layer in screen coordinates vs touch location.
-                            // Simplified: Dragging Left/Right rotates? Or following circular path?
-                            // Circular path is best.
-                            // Vector from Center to Touch.
-                            let vector = CGVector(dx: value.location.x, dy: value.location.y) 
-                            // *Wait*: value.location is local to the Handle view? Or the ZStack? 
-                            // It's local to the Circle if attached there.
-                            // We need it relative to the Layer Center.
-                            // Let's assume standard rotation: dx drives rotation for simplicity or use atan2.
-                            
-                            // Better approach for knob: Simple "drag horizontal to rotate" is confusing.
-                            // Best approach: Use ATAN2. 
-                            // Current touch point relative to center of layer.
-                            // Since this handle is part of the rotated view, its coordinate system ROTATES.
-                            // This makes calculation hard.
-                            
-                            // ALTERNATIVE: Don't rotate the SelectionBorder's HANDLES container? 
-                            // No, they must follow the rect.
-                            
-                            // Simple heuristic: Delta X drives rotation speed.
-                            let sensitivity: Double = 0.5
+                            // Simple rotation logic: Horizontal drag rotates
+                            let sensitivity: Double = 0.8
                             let delta = value.translation.width * sensitivity
-                            let start = innerInitialRotation ?? 0
-                            self.rotation = start + delta
+                            self.rotation = (innerInitialRotation ?? 0) + delta
                         }
                         .onEnded { _ in
                             innerInitialRotation = nil
@@ -410,10 +473,10 @@ struct SelectionBorder: View {
     func handle(alignment: Alignment) -> some View {
         Circle()
             .fill(Color.white)
-            .shadow(radius: 1)
+            .shadow(radius: 2)
             .overlay(Circle().stroke(Color.blue, lineWidth: 2))
-            .frame(width: 12, height: 12)
-            .background(Color.black.opacity(0.001).frame(width: 44, height: 44))
+            .frame(width: 14, height: 14)
+            .background(Color.black.opacity(0.001).frame(width: 40, height: 40))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
             .offset(x: offset(for: alignment).width, y: offset(for: alignment).height)
             .gesture(
@@ -423,9 +486,6 @@ struct SelectionBorder: View {
                             innerInitialFrame = frame
                         }
                         guard let startFrame = innerInitialFrame else { return }
-                        // NOTE: If the layer is rotated, value.translation is in ROTATED local space?
-                        // If we are just resizing the 'width/height' property, we are effectively resizing in Local Space.
-                        // So standard logic works!
                         updateFrame(startFrame: startFrame, drag: value.translation, alignment: alignment)
                     }
                     .onEnded { _ in
@@ -436,7 +496,7 @@ struct SelectionBorder: View {
     }
     
     func offset(for alignment: Alignment) -> CGSize {
-        let push: CGFloat = 6
+        let push: CGFloat = 6 // Push handles slightly outward
         switch alignment {
         case .topLeading: return CGSize(width: -push, height: -push)
         case .topTrailing: return CGSize(width: push, height: -push)
@@ -448,48 +508,67 @@ struct SelectionBorder: View {
     
     func updateFrame(startFrame: CGRect, drag: CGSize, alignment: Alignment) {
         var newFrame = startFrame
-        switch alignment {
-        case .topLeading:
-            newFrame.origin.x += drag.width
-            newFrame.origin.y += drag.height
-            newFrame.size.width -= drag.width
-            newFrame.size.height -= drag.height
-        case .topTrailing:
-            newFrame.origin.y += drag.height
-            newFrame.size.width += drag.width
-            newFrame.size.height -= drag.height
-        case .bottomLeading:
-            newFrame.origin.x += drag.width
-            newFrame.size.width -= drag.width
-            newFrame.size.height += drag.height
-        case .bottomTrailing:
-            newFrame.size.width += drag.width
-            newFrame.size.height += drag.height
-        default: break
+        let ar = startFrame.width / startFrame.height
+        
+        if lockAspectRatio {
+            // Proportional scaling
+            let multiplier: CGFloat
+            switch alignment {
+            case .bottomTrailing:
+                multiplier = 1.0 + (max(drag.width / startFrame.width, drag.height / startFrame.height))
+                newFrame.size.width = startFrame.width * multiplier
+                newFrame.size.height = newFrame.size.width / ar
+                // Origin remains same
+            case .topLeading:
+                multiplier = 1.0 - (max(-drag.width / startFrame.width, -drag.height / startFrame.height))
+                let newW = startFrame.width * multiplier
+                let newH = newW / ar
+                newFrame.origin.x = startFrame.maxX - newW
+                newFrame.origin.y = startFrame.maxY - newH
+                newFrame.size.width = newW
+                newFrame.size.height = newH
+            case .topTrailing:
+                multiplier = 1.0 + (max(drag.width / startFrame.width, -drag.height / startFrame.height))
+                let newW = startFrame.width * multiplier
+                let newH = newW / ar
+                newFrame.origin.y = startFrame.maxY - newH
+                newFrame.size.width = newW
+                newFrame.size.height = newH
+            case .bottomLeading:
+                multiplier = 1.0 + (max(-drag.width / startFrame.width, drag.height / startFrame.height))
+                let newW = startFrame.width * multiplier
+                let newH = newW / ar
+                newFrame.origin.x = startFrame.maxX - newW
+                newFrame.size.width = newW
+                newFrame.size.height = newH
+            default: break
+            }
+        } else {
+            // Freeform (not used for photos)
+            switch alignment {
+            case .topLeading:
+                newFrame.origin.x += drag.width; newFrame.origin.y += drag.height
+                newFrame.size.width -= drag.width; newFrame.size.height -= drag.height
+            case .topTrailing:
+                newFrame.origin.y += drag.height; newFrame.size.width += drag.width; newFrame.size.height -= drag.height
+            case .bottomLeading:
+                newFrame.origin.x += drag.width; newFrame.size.width -= drag.width; newFrame.size.height += drag.height
+            case .bottomTrailing:
+                newFrame.size.width += drag.width; newFrame.size.height += drag.height
+            default: break
+            }
         }
-        if newFrame.size.width > 20 && newFrame.size.height > 20 {
+        
+        if newFrame.size.width > 30 && newFrame.size.height > 30 {
             self.frame = newFrame
         }
     }
 }
 
-struct PhotoLayerElement: View {
-    let layer: PhotoLayer
-    
-    var body: some View {
-        AsyncImage(url: layer.photoUrl) { image in
-            image.resizable()
-                .aspectRatio(contentMode: .fill) // Fill the frame
-        } placeholder: {
-            Color.gray.opacity(0.3)
-        }
-        .clipped()
-        .allowsHitTesting(false) // Pass interaction to container
-    }
-}
+// PhotoLayerElement definition moved above InteractiveLayer to avoid duplication
 
 
-// Simple grid pattern helper
+// ... Rest of the file grid pattern ...
 struct GridPattern: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()

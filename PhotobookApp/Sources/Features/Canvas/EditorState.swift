@@ -7,8 +7,11 @@ public class EditorState {
     public var leftPage: PageModel
     public var rightPage: PageModel
     
-    // Selection State
+    // MARK: - Layer Management
+    
+    // Selection & Cropping
     public var selectedLayerId: LayerID?
+    public var croppingLayerId: LayerID? // New: Track which layer is being cropped
     
     // Change Tracking
     public var lastModified: Date = Date()
@@ -20,19 +23,79 @@ public class EditorState {
         self.rightPage = PageModel(pageNumber: 3)
     }
     
-    // MARK: - Layer Management
+    // MARK: - Crop Operations
+    
+    func startCropping(_ id: LayerID) {
+        selectedLayerId = id // Auto select
+        croppingLayerId = id
+    }
+    
+    func endCropping() {
+        croppingLayerId = nil
+    }
+    
+    func updateLayerCrop(id: LayerID, scale: Double, offset: CGSize, normalizedRect: CGRect?, cropRotation: Double) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.cropScale = scale
+            layer.cropOffset = offset
+            layer.normalizedCropRect = normalizedRect
+            layer.cropRotation = cropRotation
+            updateLayer(layer)
+        }
+    }
+    
+    // MARK: - Layer Helpers
+    
+    private func findLayer(_ id: LayerID) -> (any LayerProtocol)? {
+        if let layer = leftPage.layers.first(where: { $0.id == id }) { return layer.layer }
+        if let layer = rightPage.layers.first(where: { $0.id == id }) { return layer.layer }
+        return nil
+    }
+    
+    private func updateLayer(_ layer: any LayerProtocol) {
+        let id = layer.id
+        // Update Left Page
+        if let idx = leftPage.layers.firstIndex(where: { $0.id == id }) {
+            leftPage.layers[idx] = AnyLayer(layer)
+        }
+        // Update Right Page
+        else if let idx = rightPage.layers.firstIndex(where: { $0.id == id }) {
+            rightPage.layers[idx] = AnyLayer(layer)
+        }
+        
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
+    // MARK: - Layer Operations
     
     func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil) {
-        let defaultSize = CGSize(width: 200, height: 150)
-        // Use provided center or default
+        // Calculate initial size based on image aspect ratio
+        var targetSize = CGSize(width: 300, height: 200) // Default fall back
+        
+        if let w = photo.width, let h = photo.height, w > 0 && h > 0 {
+            let aspectRatio = CGFloat(w) / CGFloat(h)
+            if aspectRatio > 1 {
+                // Landscape
+                targetSize = CGSize(width: 300, height: 300 / aspectRatio)
+            } else {
+                // Portrait or Square
+                targetSize = CGSize(width: 250 * aspectRatio, height: 250)
+            }
+        } else {
+            // Try loading image metadata if width/height is missing? 
+            // For now, use a safer default or logic.
+        }
+        
+        // Use provided center or a safe default
         let position = center ?? CGPoint(x: 100, y: 100)
         
         // Frame origin = center - half size
         let newFrame = CGRect(
-            x: position.x - defaultSize.width / 2,
-            y: position.y - defaultSize.height / 2,
-            width: defaultSize.width,
-            height: defaultSize.height
+            x: position.x - targetSize.width / 2,
+            y: position.y - targetSize.height / 2,
+            width: targetSize.width,
+            height: targetSize.height
         )
         
         let newLayer = PhotoLayer(photoId: photo.id, photoUrl: photo.url, frame: newFrame)

@@ -122,42 +122,58 @@ struct PhotoThumnailView: View {
         photoStore.selectedPhotos.contains(where: { $0.id == photo.id })
     }
     
+    // Calculate aspect ratio from metadata
+    var aspectRatio: CGFloat {
+        if let w = photo.width, let h = photo.height, w > 0, h > 0 {
+            return CGFloat(w) / CGFloat(h)
+        }
+        return 1.0
+    }
+    
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            // Image Placeholder (Actual loading logic would go here)
-            // For Phase 1, we use a colored rectangle or async image if URL is valid
-            AsyncImage(url: photo.url) { phase in
-                switch phase {
-                case .empty:
-                    Rectangle().fill(themeManager.theme.searchFieldColor)
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                case .failure:
-                    Rectangle().fill(Color.red.opacity(0.1))
-                    Image(systemName: "exclamationmark.triangle")
-                @unknown default:
-                    EmptyView()
+            // Use thumbnail image if available, otherwise async load
+            if let thumbnail = photo.thumbnailImage {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            } else {
+                AsyncImage(url: photo.url) { phase in
+                    switch phase {
+                    case .empty:
+                        Rectangle().fill(themeManager.theme.searchFieldColor)
+                    case .success(let image):
+                        image.resizable().aspectRatio(aspectRatio, contentMode: .fit)
+                    case .failure:
+                        Rectangle().fill(Color.red.opacity(0.1))
+                        Image(systemName: "exclamationmark.triangle")
+                    @unknown default:
+                        EmptyView()
+                    }
                 }
-            }
-            .frame(height: 80)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(isSelected ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
-            )
-            
-            // Selection Checkmark
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(themeManager.theme.accentColor)
-                    .background(Circle().fill(Color.white))
-                    .padding(4)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
+        .frame(minHeight: 60) // Minimum height for very wide images
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(isSelected ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
+        )
+        .contentShape(Rectangle())
         .onTapGesture {
             photoStore.toggleSelection(photo)
         }
-        // Build Drag Support
+        // Right-click context menu
+        .contextMenu {
+            Button(role: .destructive) {
+                photoStore.deletePhoto(photo)
+            } label: {
+                Label("Delete from Library", systemImage: "trash")
+            }
+        }
+        // Drag Support
         .draggable(photo.url) {
             Image(nsImage: photo.thumbnailImage ?? NSImage())
                 .resizable()

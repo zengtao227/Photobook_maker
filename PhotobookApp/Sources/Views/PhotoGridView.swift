@@ -34,38 +34,63 @@ struct PhotoThumbnailView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Photo thumbnail
-            Group {
-                if let thumbnail = photo.thumbnailImage {
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay {
-                            Image(systemName: "photo")
-                                .foregroundColor(.gray)
-                        }
+        VStack(spacing: 6) {
+            // Calculate true aspect ratio from metadata if available
+            let aspectRatio: CGFloat = {
+                if let w = photo.width, let h = photo.height, w > 0, h > 0 {
+                    let ratio = CGFloat(w) / CGFloat(h)
+                    print("DEBUG THUMBNAIL: \(photo.filename) - \(w)x\(h), ratio: \(ratio)")
+                    return ratio
                 }
+                print("DEBUG THUMBNAIL: \(photo.filename) - NO DIMENSIONS, using 1.0")
+                return 1.0 // Fallback
+            }()
+            
+            if let thumbnail = photo.thumbnailImage {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    // CRITICAL: Force the View to respect the Metadata Aspect Ratio
+                    // This overrides any potential square-cropping in the thumbnail data itself
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+                    .overlay {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.accentColor, lineWidth: 3)
+                        }
+                    }
+                    .frame(minHeight: 100) // Ensure it's not too small
+            } else {
+                // Placeholder matches the ratio too
+                Color.gray.opacity(0.1)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay {
+                        Image(systemName: "photo")
+                            .foregroundColor(.gray.opacity(0.5))
+                    }
+                    .frame(minHeight: 100)
             }
-            .frame(width: 120, height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
-            }
-
-            // Selection indicator
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.accentColor)
-                    .background(Circle().fill(.white))
-                    .padding(4)
+            
+            // Minimalist Label
+            Text(photo.filename)
+                .font(.system(size: 10, weight: .medium))
+                .lineLimit(1)
+                .foregroundColor(isSelected ? .accentColor : .secondary)
+                .padding(.horizontal, 4)
+        }
+        .padding(4)
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(role: .destructive) {
+                withAnimation {
+                    photoStore.deletePhoto(photo)
+                }
+            } label: {
+                Label("Delete from Library", systemImage: "trash")
             }
         }
-        .contentShape(Rectangle())
     }
 }
 

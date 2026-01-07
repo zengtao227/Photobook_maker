@@ -116,40 +116,133 @@ class PhotoStore: ObservableObject {
         }
         self.monthGroups = groups
     }
+    
+    /// Refresh all photos: regenerate thumbnails and re-read dimensions
+    /// Call this after loading from persistence to fix any stale data
+    func refreshAllPhotos() async {
+        var refreshedPhotos: [Photo] = []
+        
+        for photo in allPhotos {
+            var updatedPhoto = photo
+            
+            // Regenerate thumbnail
+            if let thumbnail = await generateThumbnail(from: photo.url) {
+                updatedPhoto.thumbnailImage = thumbnail
+            }
+            
+            // Re-read dimensions if missing or zero
+            if updatedPhoto.width == nil || updatedPhoto.height == nil || 
+               updatedPhoto.width == 0 || updatedPhoto.height == 0 {
+                let (w, h) = readImageDimensions(from: photo.url)
+                updatedPhoto.width = w
+                updatedPhoto.height = h
+            }
+            
+            refreshedPhotos.append(updatedPhoto)
+        }
+        
+        allPhotos = refreshedPhotos
+        recalculateMonthGroups()
+    }
+    
+    /// Read image dimensions from file
+    private func readImageDimensions(from url: URL) -> (Int?, Int?) {
+        var width: Int?
+        var height: Int?
+        
+        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+            
+            let rawW = (properties[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue ?? 0
+            let rawH = (properties[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue ?? 0
+            let orientation = (properties[kCGImagePropertyOrientation as String] as? NSNumber)?.intValue ?? 1
+            
+            if orientation >= 5 && orientation <= 8 {
+                width = rawH
+                height = rawW
+            } else {
+                width = rawW
+                height = rawH
+            }
+        }
+        
+        // Fallback
+        if width == nil || height == nil || width == 0 || height == 0 {
+            if let image = NSImage(contentsOf: url), let rep = image.representations.first {
+                width = rep.pixelsWide
+                height = rep.pixelsHigh
+            }
+        }
+        
+        return (width, height)
+    }
 
     /// Load a single photo with EXIF data
     private func loadPhoto(from url: URL) async -> Photo {
         let dateTaken = exifReader.getDateTaken(from: url)
         let thumbnail = await generateThumbnail(from: url)
-        return Photo(url: url, dateTaken: dateTaken, thumbnailImage: thumbnail)
+        
+        var width: Int?
+        var height: Int?
+        
+        // Use ImageIO directly as it's the most reliable way to get metadata without loading the file
+        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+            
+            // Safe extraction using NSNumber for broad type compatibility
+            let rawW = (properties[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue ?? 0
+            let rawH = (properties[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue ?? 0
+            let orientation = (properties[kCGImagePropertyOrientation as String] as? NSNumber)?.intValue ?? 1
+            
+            // Orientations 5-8 mean image is rotated 90 or 270 degrees
+            if orientation >= 5 && orientation <= 8 {
+                width = rawH
+                height = rawW
+            } else {
+                width = rawW
+                height = rawH
+            }
+        }
+        
+        // Fallback if ImageIO failed or returned 0 dimensions
+        if width == nil || height == nil || width == 0 || height == 0 {
+             if let image = NSImage(contentsOf: url) {
+                 // NSImage size is in points, but ratio is what matters. 
+                 // If we want pixels, we'd need representations, but for ratio, size is fine.
+                 if let rep = image.representations.first {
+                     width = rep.pixelsWide
+                     height = rep.pixelsHigh
+                 } else {
+                     width = Int(image.size.width)
+                     height = Int(image.size.height)
+                 }
+            }
+        }
+        
+        var photo = Photo(url: url, dateTaken: dateTaken, thumbnailImage: thumbnail)
+        photo.width = width
+        photo.height = height
+        print("DEBUG: Loaded photo \(url.lastPathComponent), size: \(width ?? 0)x\(height ?? 0)") // Debug log
+        return photo
     }
 
-    /// Generate thumbnail for display
+    /// Generate thumbnail for display with proper orientation
     private func generateThumbnail(from url: URL) async -> NSImage? {
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                guard let image = NSImage(contentsOf: url) else {
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true, // Force resample
+                    kCGImageSourceCreateThumbnailWithTransform: true, // Handle Orientation
+                    kCGImageSourceThumbnailMaxPixelSize: 300
+                ]
+                
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
                     continuation.resume(returning: nil)
                     return
                 }
-
-                let maxSize: CGFloat = 200
-                let ratio = min(maxSize / image.size.width, maxSize / image.size.height)
-                let newSize = CGSize(
-                    width: image.size.width * ratio,
-                    height: image.size.height * ratio
-                )
-
-                let thumbnail = NSImage(size: newSize)
-                thumbnail.lockFocus()
-                image.draw(
-                    in: NSRect(origin: .zero, size: newSize),
-                    from: NSRect(origin: .zero, size: image.size),
-                    operation: .copy,
-                    fraction: 1.0
-                )
-                thumbnail.unlockFocus()
-
+                
+                let thumbnail = NSImage(cgImage: cgImage, size: .zero)
                 continuation.resume(returning: thumbnail)
             }
         }
@@ -177,5 +270,35 @@ class PhotoStore: ObservableObject {
     /// Clear selection
     func clearSelection() {
         selectedPhotos.removeAll()
+    }
+    
+    /// Delete a photo from library
+    func deletePhoto(_ photo: Photo) {
+        print("DEBUG: deletePhoto called for \(photo.filename)")
+        
+        // 1. Remove from allPhotos
+        if let idx = allPhotos.firstIndex(where: { $0.id == photo.id }) {
+            allPhotos.remove(at: idx)
+            print("DEBUG: Removed from allPhotos, new count: \(allPhotos.count)")
+        } else {
+            print("DEBUG: Photo not found in allPhotos!")
+        }
+        
+        // 2. Remove from monthGroups
+        var newGroups: [MonthGroup] = []
+        for var group in monthGroups {
+            group.photos.removeAll(where: { $0.id == photo.id })
+            if !group.photos.isEmpty {
+                newGroups.append(group)
+            }
+        }
+        monthGroups = newGroups
+        
+        // 3. Remove from selection
+        if let selIdx = selectedPhotos.firstIndex(of: photo) {
+            selectedPhotos.remove(at: selIdx)
+        }
+        
+        print("DEBUG: deletePhoto completed")
     }
 }

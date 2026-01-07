@@ -44,6 +44,8 @@ public struct PhotoLayer: LayerProtocol {
     // Crop properties (Added for Phase 2.1)
     public var cropScale: Double = 1.0
     public var cropOffset: CGSize = .zero
+    public var normalizedCropRect: CGRect? // Stores relative crop area (0-1) for re-editing
+    public var cropRotation: Double = 0.0 // Corrective rotation inside editor
     
     public enum MaskType: String, Codable {
         case rectangle

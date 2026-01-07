@@ -126,6 +126,11 @@ struct PhotobookApp: App {
             photoStore.allPhotos = data.photos
             photoStore.recalculateMonthGroups()
             
+            // Refresh thumbnails and dimensions (they are not persisted)
+            Task {
+                await photoStore.refreshAllPhotos()
+            }
+            
             print("Opened project: \(project.name)")
         } else {
             // New project - initialize with defaults
