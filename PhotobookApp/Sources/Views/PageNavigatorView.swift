@@ -165,7 +165,7 @@ struct SpreadPageMiniature: View {
         GeometryReader { geometry in
             ZStack {
                 // Background
-                Color(hex: page.backgroundColorHex) ?? .white
+                Color(hex: page.backgroundColorHex)
                 
                 // Layer indicators (simplified)
                 ForEach(page.layers.prefix(3)) { wrapper in

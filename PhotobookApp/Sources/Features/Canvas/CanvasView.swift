@@ -1092,7 +1092,6 @@ struct BleedLabel: View {
             .background(Color.white.opacity(0.85))
             .cornerRadius(3)
     }
-    }
 }
 
 // MARK: - Stamp Shape

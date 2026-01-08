@@ -450,7 +450,7 @@ struct InspectorPanel: View {
     
     private func bindingForTextColor(_ layer: TextLayer) -> Binding<Color> {
         Binding(
-            get: { Color(hex: layer.colorHex) ?? .black },
+            get: { Color(hex: layer.colorHex) },
             set: { editorState.updateTextStyle(id: layer.id, colorHex: $0.toHex()) }
         )
     }
@@ -495,6 +495,8 @@ struct InspectorPanel: View {
             "STXingkai",     // 华文行楷
             "STYuanti",      // 华文圆体
             "Wawa SC",       // 娃娃体
+            "Hannotate SC",  // 手札体 (可爱风格)
+            "HanziPen SC",   // 翩翩体 (可爱风格)
             "Libian SC",     // 隶变
             
             // English Fonts
