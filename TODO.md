@@ -1,6 +1,6 @@
 # PhotobookPro 开发任务清单 (Roadmap)
 
-## ✅ Phase 1: 核心架构与基础编辑 (当前阶段)
+## ✅ Phase 1: 核心架构与基础编辑
 
 ### 1.1 项目架构
 - [x] **基础 UI 框架** (NavigationSplitView: Library, Canvas, Inspector)
@@ -35,7 +35,7 @@
 
 ---
 
-## 🚧 Phase 2: 内容丰富与细节完善 (进行中)
+## ✅ Phase 2: 内容丰富与细节完善
 
 ### 2.1 高级图片编辑
 - [x] **图片裁剪 (Crop)**
@@ -82,12 +82,77 @@
 
 ---
 
-## 📅 Phase 3: 导出与生产
-- [ ] **PDF 导出**
-    - [ ] 高分辨率渲染
-    - [ ] 打印出血线支持
+## ✅ Phase 3: 图层样式增强
+
+- [x] **边框样式扩展**
+    - [x] 实线/虚线/点线/双线
+    - [x] 邮票边框 (StampShape)
+    - [x] 圆角控制
+- [x] **贴纸系统完善**
+    - [x] 统一贴纸面板 (Quick Emoji + Modal Picker)
+    - [x] 关闭按钮修复
+- [x] **代码质量**
+    - [x] 消除所有 Color(hex:) 可选值警告
+
+---
+
+## 🚧 Phase 4: 封面、导出与印刷标准 (进行中)
+
+### 4.1 数据结构重构
+- [x] **BookStructure 模型**
+    - [x] 区分封面 (Front/Back Cover) 与内页 (Inner Pages)
+    - [x] 书脊宽度计算 (Spine Width = 页数 × 纸张厚度)
+    - [x] 装订类型支持 (软皮/精装/蝴蝶装/骑马钉)
+- [x] **EditorState 升级**
+    - [x] 导航目标 (EditorNavigationTarget)
+    - [x] 封面/内页切换逻辑
+
+### 4.2 导出功能
+- [x] **导出 UI**
+    - [x] 工具栏导出按钮
+    - [x] 导出设置 Modal (ExportSettingsView)
+    - [x] DPI 选择 (72/150/300/600)
+    - [x] 出血设置 (开/关, 2mm/3mm/5mm)
+    - [x] 导出模式 (单页/跨页/印刷全包)
+- [x] **印刷标记**
+    - [x] 裁切线 (Crop Marks)
+    - [x] 套准标记 (Registration Marks)
+    - [x] 色条 (Color Bars)
+    - [x] 页面信息
+
+### 4.3 页面导航器重构
+- [x] **PageNavigatorView 升级**
+    - [x] 封面/封底缩略图
+    - [x] 书脊指示器
+    - [x] 内页与封面视觉分区
+
+### 4.4 待完成
+- [ ] **精装全包封面画布**
+    - [ ] 全包封面编辑模式 (Back + Spine + Front 连体)
+    - [ ] 书脊区域可视化
 - [ ] **项目归档**
     - [ ] 导出项目包 (.photobook 文件)
+
+---
+
+## 📅 Phase 5: 打包与发布 (计划中)
+
+### 5.1 应用打包
+- [ ] **App 图标**
+    - [x] 图标资源准备 (`Resources/Branding/AppIcon.png`)
+    - [ ] Asset Catalog 配置 (AppIcon.appiconset)
+- [ ] **DMG 打包**
+    - [ ] 签名与公证 (Code Signing & Notarization)
+    - [ ] DMG 背景图设计
+    - [ ] 安装向导
+
+### 5.2 发布准备
+- [ ] **文档**
+    - [ ] 用户手册
+    - [ ] 快捷键参考
+- [ ] **测试**
+    - [ ] 完整功能测试
+    - [ ] 性能优化
 
 ---
 
@@ -97,4 +162,12 @@
 
 ---
 
-*上次更新: 2026-01-07*
+## 📁 资源文件
+
+| 路径 | 说明 |
+|------|------|
+| `PhotobookApp/Resources/Branding/AppIcon.png` | 应用图标源文件 |
+
+---
+
+*上次更新: 2026-01-08*

@@ -139,9 +139,20 @@ public struct TextLayer: LayerProtocol {
     public var alignment: TextAlignment = .center
     
     public enum TextAlignment: String, Codable, CaseIterable {
-        case leading = "左对齐"
-        case center = "居中"
-        case trailing = "右对齐"
+        case leading = "leading"
+        case center = "center"
+        case trailing = "trailing"
+        
+        public func displayName(localization: LocalizationManager) -> String {
+            switch self {
+            case .leading:
+                return localization.localized(.textAlignLeft)
+            case .center:
+                return localization.localized(.textAlignCenter)
+            case .trailing:
+                return localization.localized(.textAlignRight)
+            }
+        }
     }
     
     public init(text: String, frame: CGRect) {

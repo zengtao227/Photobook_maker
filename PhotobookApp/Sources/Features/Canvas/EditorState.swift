@@ -1,6 +1,25 @@
 import SwiftUI
 import Observation
 
+// MARK: - Navigation Target
+
+/// Represents what the user is currently editing
+public enum EditorNavigationTarget: Equatable {
+    case frontCover
+    case backCover
+    case innerSpread(index: Int)
+    case fullCoverWrap
+    
+    public var displayName: String {
+        switch self {
+        case .frontCover: return "封面"
+        case .backCover: return "封底"
+        case .innerSpread(let index): return "内页 \(index + 1)"
+        case .fullCoverWrap: return "全包封面"
+        }
+    }
+}
+
 @Observable
 public class EditorState {
     // Current Spread State
@@ -30,29 +49,58 @@ public class EditorState {
         bleedMM * 2.83465 // 1mm ≈ 2.83465 points
     }
     
-    // MARK: - Multi-Spread Management (Phase 3)
+    // MARK: - Book Structure (Phase 4)
     
-    /// All spreads in the book (each spread = left + right page)
-    public var allSpreads: [(left: PageModel, right: PageModel)] = []
+    /// Complete book structure with covers and inner pages
+    public var bookStructure: BookStructure = BookStructure()
     
-    /// Current spread index (0-based)
-    public var currentSpreadIndex: Int = 0
+    /// Current navigation target
+    public var currentTarget: EditorNavigationTarget = .innerSpread(index: 0)
     
-    /// Total number of spreads
-    public var spreadCount: Int {
-        allSpreads.count
+    /// Whether currently editing covers
+    public var isEditingCover: Bool {
+        switch currentTarget {
+        case .frontCover, .backCover, .fullCoverWrap: return true
+        case .innerSpread: return false
+        }
     }
     
-    /// Navigate to a specific spread, saving current changes first
-    public func navigateToSpread(_ index: Int) {
-        guard index >= 0 && index < allSpreads.count else { return }
+    // MARK: - Multi-Spread Management (Phase 3 - Legacy Compatibility)
+    
+    /// All spreads in the book (each spread = left + right page)
+    /// Now backed by bookStructure.innerSpreads
+    public var allSpreads: [(left: PageModel, right: PageModel)] {
+        get { bookStructure.innerSpreads }
+        set { bookStructure.innerSpreads = newValue }
+    }
+    
+    /// Current spread index (0-based, for inner spreads only)
+    public var currentSpreadIndex: Int {
+        get {
+            if case .innerSpread(let index) = currentTarget {
+                return index
+            }
+            return 0
+        }
+        set {
+            currentTarget = .innerSpread(index: newValue)
+        }
+    }
+    
+    /// Total number of inner spreads
+    public var spreadCount: Int {
+        bookStructure.innerSpreads.count
+    }
+    
+    // MARK: - Navigation
+    
+    /// Navigate to a specific target (cover or inner spread)
+    public func navigateTo(_ target: EditorNavigationTarget) {
+        // Save current state before switching
+        saveCurrentState()
         
-        // Save current spread before switching
-        saveCurrentSpread()
-        
-        // Load new spread
-        currentSpreadIndex = index
-        loadCurrentSpread()
+        currentTarget = target
+        loadCurrentState()
         
         // Clear selection when switching pages
         selectedLayerId = nil
@@ -60,57 +108,163 @@ public class EditorState {
         updateCounter += 1
     }
     
-    /// Save current left/right pages back to allSpreads
+    /// Navigate to a specific inner spread (legacy compatibility)
+    public func navigateToSpread(_ index: Int) {
+        guard index >= 0 && index < bookStructure.innerSpreads.count else { return }
+        navigateTo(.innerSpread(index: index))
+    }
+    
+    /// Navigate to front cover
+    public func navigateToFrontCover() {
+        navigateTo(.frontCover)
+    }
+    
+    /// Navigate to back cover
+    public func navigateToBackCover() {
+        navigateTo(.backCover)
+    }
+    
+    /// Navigate to full cover wrap (hardcover only)
+    public func navigateToFullCoverWrap() {
+        guard bookStructure.bindingType.supportsFullWrap else { return }
+        navigateTo(.fullCoverWrap)
+    }
+    
+    /// Save current left/right pages back to appropriate location
+    public func saveCurrentState() {
+        print("🔍 DEBUG: saveCurrentState() called, currentTarget: \(currentTarget)")
+        print("🔍 DEBUG: leftPage layers: \(leftPage.layers.count), rightPage layers: \(rightPage.layers.count)")
+        
+        switch currentTarget {
+        case .frontCover:
+            // 只保存封面（左页），右页是空白不保存
+            bookStructure.frontCover = leftPage
+            print("🔍 DEBUG: Saved frontCover with \(leftPage.layers.count) layers")
+        case .backCover:
+            // 只保存封底（右页），左页是空白不保存
+            bookStructure.backCover = rightPage
+            print("🔍 DEBUG: Saved backCover with \(rightPage.layers.count) layers")
+        case .innerSpread(let index):
+            guard index < bookStructure.innerSpreads.count else { 
+                print("❌ DEBUG: Invalid spread index \(index), total spreads: \(bookStructure.innerSpreads.count)")
+                return 
+            }
+            bookStructure.innerSpreads[index] = (left: leftPage, right: rightPage)
+            print("🔍 DEBUG: Saved innerSpread[\(index)] with left:\(leftPage.layers.count) right:\(rightPage.layers.count) layers")
+        case .fullCoverWrap:
+            bookStructure.fullCoverWrap = leftPage
+            print("🔍 DEBUG: Saved fullCoverWrap with \(leftPage.layers.count) layers")
+        }
+    }
+    
+    /// Alias for legacy compatibility
     public func saveCurrentSpread() {
-        guard currentSpreadIndex < allSpreads.count else { return }
-        allSpreads[currentSpreadIndex] = (left: leftPage, right: rightPage)
+        saveCurrentState()
     }
     
-    /// Load spread from allSpreads into current left/right pages
-    private func loadCurrentSpread() {
-        guard currentSpreadIndex < allSpreads.count else { return }
-        let spread = allSpreads[currentSpreadIndex]
-        leftPage = spread.left
-        rightPage = spread.right
+    /// Load state based on current target
+    private func loadCurrentState() {
+        switch currentTarget {
+        case .frontCover:
+            // 封面：左页显示封面（外面），右页是空白内页（不可编辑）
+            leftPage = bookStructure.frontCover
+            rightPage = PageModel(pageNumber: -99) // 空白占位页
+        case .backCover:
+            // 封底：左页是空白内页（不可编辑），右页显示封底（外面）
+            leftPage = PageModel(pageNumber: -98) // 空白占位页
+            rightPage = bookStructure.backCover
+        case .innerSpread(let index):
+            guard index < bookStructure.innerSpreads.count else { return }
+            let spread = bookStructure.innerSpreads[index]
+            leftPage = spread.left
+            rightPage = spread.right
+        case .fullCoverWrap:
+            leftPage = bookStructure.fullCoverWrap ?? PageModel(pageNumber: -2)
+            rightPage = PageModel(pageNumber: -99)
+        }
     }
     
-    /// Add a new spread to the book
+    /// Load state without saving current state (used when opening project)
+    public func loadStateWithoutSaving() {
+        loadCurrentState()
+        selectedLayerId = nil
+        lastModified = Date()
+        updateCounter += 1
+        print("📖 DEBUG: Loaded state for \(currentTarget), leftPage:\(leftPage.layers.count) rightPage:\(rightPage.layers.count)")
+    }
+    
+    /// Add a new inner spread to the book
     public func addNewSpread() {
         // Save current first
-        saveCurrentSpread()
+        saveCurrentState()
         
-        // Create new spread
-        let newLeft = PageModel(pageNumber: allSpreads.count * 2 + 2)
-        let newRight = PageModel(pageNumber: allSpreads.count * 2 + 3)
-        allSpreads.append((left: newLeft, right: newRight))
+        // Add new spread via BookStructure
+        bookStructure.addInnerSpread()
         
         // Navigate to new spread
-        navigateToSpread(allSpreads.count - 1)
+        navigateToSpread(bookStructure.innerSpreads.count - 1)
     }
     
-    /// Delete a spread from the book
+    /// Delete an inner spread from the book
     public func deleteSpread(at index: Int) {
-        guard allSpreads.count > 1, index >= 0 && index < allSpreads.count else { return }
+        guard bookStructure.innerSpreads.count > 1, 
+              index >= 0 && index < bookStructure.innerSpreads.count else { return }
         
-        allSpreads.remove(at: index)
+        bookStructure.removeInnerSpread(at: index)
         
-        // Adjust current index if needed
-        if currentSpreadIndex >= allSpreads.count {
-            currentSpreadIndex = allSpreads.count - 1
+        // Adjust navigation if needed
+        if case .innerSpread(let currentIndex) = currentTarget {
+            if currentIndex >= bookStructure.innerSpreads.count {
+                currentTarget = .innerSpread(index: bookStructure.innerSpreads.count - 1)
+            }
         }
         
-        loadCurrentSpread()
+        loadCurrentState()
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
+    /// Move a spread from one position to another (for drag reordering)
+    public func moveSpread(from sourceIndex: Int, to destinationIndex: Int) {
+        guard sourceIndex >= 0 && sourceIndex < bookStructure.innerSpreads.count,
+              destinationIndex >= 0 && destinationIndex < bookStructure.innerSpreads.count,
+              sourceIndex != destinationIndex else { return }
+        
+        // Save current state first
+        saveCurrentState()
+        
+        // Remove from source and insert at destination
+        let spread = bookStructure.innerSpreads.remove(at: sourceIndex)
+        bookStructure.innerSpreads.insert(spread, at: destinationIndex)
+        
+        // Update current navigation target if needed
+        if case .innerSpread(let currentIndex) = currentTarget {
+            if currentIndex == sourceIndex {
+                // We moved the current spread
+                currentTarget = .innerSpread(index: destinationIndex)
+            } else if sourceIndex < currentIndex && destinationIndex >= currentIndex {
+                // Spread moved from before to after current
+                currentTarget = .innerSpread(index: currentIndex - 1)
+            } else if sourceIndex > currentIndex && destinationIndex <= currentIndex {
+                // Spread moved from after to before current
+                currentTarget = .innerSpread(index: currentIndex + 1)
+            }
+        }
+        
+        loadCurrentState()
         lastModified = Date()
         updateCounter += 1
     }
     
     public init() {
-        // Initialize with blank pages
-        self.leftPage = PageModel(pageNumber: 2)
-        self.rightPage = PageModel(pageNumber: 3)
+        // Initialize BookStructure first
+        let structure = BookStructure()
+        self.bookStructure = structure
         
-        // Initialize allSpreads with the first spread
-        self.allSpreads = [(left: leftPage, right: rightPage)]
+        // Initialize with first inner spread
+        self.leftPage = structure.innerSpreads[0].left
+        self.rightPage = structure.innerSpreads[0].right
+        self.currentTarget = .innerSpread(index: 0)
     }
     
     // MARK: - Crop Operations
@@ -280,9 +434,9 @@ func addEmojiSticker(emoji: String, isLeftPage: Bool, center: CGPoint? = nil) {
     addLayer(sticker, toLeftPage: isLeftPage)
 }
     
-    func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil) {
+    func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil, scale: CGFloat = 1.0) {
         // Calculate initial size based on image aspect ratio
-        var targetSize = CGSize(width: 300, height: 200) // Default fall back
+        var targetSize = CGSize(width: 300, height: 200) // Default fall back (逻辑尺寸)
         
         if let w = photo.width, let h = photo.height, w > 0 && h > 0 {
             let aspectRatio = CGFloat(w) / CGFloat(h)
@@ -293,23 +447,26 @@ func addEmojiSticker(emoji: String, isLeftPage: Bool, center: CGPoint? = nil) {
                 // Portrait or Square
                 targetSize = CGSize(width: 250 * aspectRatio, height: 250)
             }
-        } else {
-            // Try loading image metadata if width/height is missing? 
-            // For now, use a safer default or logic.
         }
         
-        // Use provided center or a safe default
-        let position = center ?? CGPoint(x: 100, y: 100)
+        // Use provided center or a safe default (显示坐标)
+        let displayCenter = center ?? CGPoint(x: 100, y: 100)
         
-        // Frame origin = center - half size
-        let newFrame = CGRect(
-            x: position.x - targetSize.width / 2,
-            y: position.y - targetSize.height / 2,
+        // 转换为逻辑坐标
+        let logicalCenter = CGPoint(
+            x: displayCenter.x / scale,
+            y: displayCenter.y / scale
+        )
+        
+        // Frame origin = center - half size (逻辑坐标)
+        let logicalFrame = CGRect(
+            x: logicalCenter.x - targetSize.width / 2,
+            y: logicalCenter.y - targetSize.height / 2,
             width: targetSize.width,
             height: targetSize.height
         )
         
-        let newLayer = PhotoLayer(photoId: photo.id, photoUrl: photo.url, frame: newFrame)
+        let newLayer = PhotoLayer(photoId: photo.id, photoUrl: photo.url, frame: logicalFrame)
         
         if isLeftPage {
             leftPage.layers.append(AnyLayer(newLayer))
@@ -318,9 +475,10 @@ func addEmojiSticker(emoji: String, isLeftPage: Bool, center: CGPoint? = nil) {
         }
         
         // Auto-select the new layer
-        // Auto-select the new layer
         selectedLayerId = newLayer.id
         lastModified = Date() // Trigger Save
+        
+        print("DEBUG: Added photo at logical frame: \(logicalFrame), scale: \(scale)")
     }
     
     // MARK: - Text Layer Operations

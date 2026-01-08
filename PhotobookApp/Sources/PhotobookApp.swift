@@ -10,9 +10,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Force activation
         NSApp.activate(ignoringOtherApps: true)
         
-        // Ensure the window is key
-        DispatchQueue.main.async {
-            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        // Restore window frame after a short delay to ensure window is created
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if let window = NSApp.windows.first {
+                self.restoreWindowFrame(window)
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        // Save window frame before closing
+        if let window = NSApp.windows.first {
+            saveWindowFrame(window)
+        }
+    }
+    
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Save window frame when last window closes
+        if let window = NSApp.windows.first {
+            saveWindowFrame(window)
+        }
+        return true
+    }
+    
+    private func saveWindowFrame(_ window: NSWindow) {
+        let frame = window.frame
+        let frameString = NSStringFromRect(frame)
+        UserDefaults.standard.set(frameString, forKey: "MainWindowFrame")
+        UserDefaults.standard.synchronize()
+        print("💾 Saved window frame: \(frameString)")
+    }
+    
+    private func restoreWindowFrame(_ window: NSWindow) {
+        if let frameString = UserDefaults.standard.string(forKey: "MainWindowFrame") {
+            let frame = NSRectFromString(frameString)
+            if frame != .zero && frame.width > 100 && frame.height > 100 {
+                window.setFrame(frame, display: true, animate: false)
+                print("📐 Restored window frame: \(frameString)")
+            } else {
+                print("⚠️ Invalid saved frame, using default")
+            }
+        } else {
+            print("ℹ️ No saved window frame found")
         }
     }
 }
@@ -26,6 +66,7 @@ struct PhotobookApp: App {
     @State private var bookContext = BookContext()
     @State private var editorState = EditorState()
     @State private var saveThrottle: Date?
+    @State private var windowFrameObserver: NSObjectProtocol?
     @Environment(\.scenePhase) private var scenePhase
     
     // Project routing state
@@ -57,6 +98,20 @@ struct PhotobookApp: App {
                     .onChange(of: scenePhase) { _, newPhase in
                         if newPhase == .background || newPhase == .inactive {
                             saveCurrentProject()
+                            // Save window frame when app goes to background
+                            if let window = NSApp.windows.first {
+                                saveWindowFrame(window)
+                            }
+                        }
+                    }
+                    .onAppear {
+                        // Setup window frame observer
+                        setupWindowFrameObserver()
+                    }
+                    .onDisappear {
+                        // Cleanup observer
+                        if let observer = windowFrameObserver {
+                            NotificationCenter.default.removeObserver(observer)
                         }
                     }
                 }
@@ -120,8 +175,24 @@ struct PhotobookApp: App {
             bookContext.customWidth = data.customWidth
             bookContext.customHeight = data.customHeight
             
-            editorState.leftPage = data.leftPage
-            editorState.rightPage = data.rightPage
+            // Restore complete book structure
+            editorState.bookStructure = data.bookStructure
+            
+            print("📂 DEBUG: Loaded project bookStructure:")
+            print("   - frontCover layers: \(data.bookStructure.frontCover.layers.count)")
+            print("   - backCover layers: \(data.bookStructure.backCover.layers.count)")
+            for (index, spread) in data.bookStructure.innerSpreads.enumerated() {
+                print("   - innerSpread[\(index)] left:\(spread.left.layers.count) right:\(spread.right.layers.count)")
+            }
+            
+            // Navigate to first spread WITHOUT saving current state (since we just loaded)
+            if !data.bookStructure.innerSpreads.isEmpty {
+                editorState.currentTarget = .innerSpread(index: 0)
+                editorState.loadStateWithoutSaving()  // Load without saving
+            } else {
+                editorState.currentTarget = .frontCover
+                editorState.loadStateWithoutSaving()  // Load without saving
+            }
             
             photoStore.allPhotos = data.photos
             photoStore.recalculateMonthGroups()
@@ -131,20 +202,24 @@ struct PhotobookApp: App {
                 await photoStore.refreshAllPhotos()
             }
             
-            print("Opened project: \(project.name)")
+            print("✅ Opened project: \(project.name) with \(data.bookStructure.innerSpreads.count) spreads")
         } else {
             // New project - initialize with defaults
-            editorState.leftPage = PageModel(pageNumber: 0)
-            editorState.rightPage = PageModel(pageNumber: 1)
+            editorState.bookStructure = BookStructure()
+            editorState.currentTarget = .frontCover
+            editorState.loadStateWithoutSaving()
             photoStore.allPhotos = []
             photoStore.recalculateMonthGroups()
             
-            print("Created new project: \(project.name)")
+            print("✅ Created new project: \(project.name)")
         }
     }
     
     private func closeProject() {
         guard let project = currentProject else { return }
+        
+        // Save current editing state before closing
+        editorState.saveCurrentState()
         saveCurrentProject()
         
         currentProject = nil
@@ -161,21 +236,72 @@ struct PhotobookApp: App {
     private func autoSaveCurrentProject() {
         guard currentProject != nil else { return }
         
-        // Throttle: Only save once per minute
+        // Throttle: Save every 2 seconds (reduced from 60 for better UX)
         let now = Date()
-        if saveThrottle == nil || now.timeIntervalSince(saveThrottle!) > 60.0 {
+        if saveThrottle == nil || now.timeIntervalSince(saveThrottle!) > 2.0 {
             saveCurrentProject()
             saveThrottle = now
+            print("🔄 Auto-saved project at \(now)")
         }
     }
     
     private func saveCurrentProject() {
         guard let project = currentProject else { return }
+        
+        // CRITICAL: Save current editing state to bookStructure before persisting
+        print("💾 DEBUG: About to save project, calling saveCurrentState()...")
+        editorState.saveCurrentState()
+        
+        print("💾 DEBUG: BookStructure state before save:")
+        print("   - frontCover layers: \(editorState.bookStructure.frontCover.layers.count)")
+        print("   - backCover layers: \(editorState.bookStructure.backCover.layers.count)")
+        for (index, spread) in editorState.bookStructure.innerSpreads.enumerated() {
+            print("   - innerSpread[\(index)] left:\(spread.left.layers.count) right:\(spread.right.layers.count)")
+        }
+        
         PersistenceManager.shared.save(
             project: project,
             bookContext: bookContext,
             editorState: editorState,
             photoStore: photoStore
         )
+    }
+    
+    // MARK: - Window Frame Persistence
+    
+    private func setupWindowFrameObserver() {
+        // Observe window frame changes and save periodically
+        windowFrameObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            if let window = notification.object as? NSWindow {
+                // Debounce: only save after user stops resizing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.saveWindowFrame(window)
+                }
+            }
+        }
+        
+        // Also observe window move
+        _ = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            if let window = notification.object as? NSWindow {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.saveWindowFrame(window)
+                }
+            }
+        }
+    }
+    
+    private func saveWindowFrame(_ window: NSWindow) {
+        let frame = window.frame
+        let frameString = NSStringFromRect(frame)
+        UserDefaults.standard.set(frameString, forKey: "MainWindowFrame")
+        UserDefaults.standard.synchronize()
     }
 }

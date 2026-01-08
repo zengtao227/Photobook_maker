@@ -5,9 +5,12 @@ public struct ProjectData: Codable {
     var pageSize: BookPageSize
     var customWidth: Double
     var customHeight: Double
-    var leftPage: PageModel
-    var rightPage: PageModel
+    var bookStructure: BookStructure  // Save complete book structure
     var photos: [Photo] // We persist the library list too
+    
+    // Legacy support for old projects
+    var leftPage: PageModel?
+    var rightPage: PageModel?
 }
 
 /// Metadata for a project (for list display)
@@ -148,15 +151,18 @@ public class PersistenceManager {
             pageSize: bookContext.pageSize,
             customWidth: bookContext.customWidth,
             customHeight: bookContext.customHeight,
-            leftPage: editorState.leftPage,
-            rightPage: editorState.rightPage,
-            photos: photoStore.allPhotos
+            bookStructure: editorState.bookStructure,  // Save complete book structure
+            photos: photoStore.allPhotos,
+            leftPage: nil,  // Legacy fields
+            rightPage: nil
         )
         
         guard let url = projectsDirectory?.appendingPathComponent(project.fileName) else { return }
         
         do {
-            let encoded = try JSONEncoder().encode(data)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted  // Make it readable
+            let encoded = try encoder.encode(data)
             try encoded.write(to: url)
             
             // Update modified time in index
@@ -166,9 +172,9 @@ public class PersistenceManager {
                 saveProjectIndex(index)
             }
             
-            print("Saved project: \(project.name)")
+            print("✅ Saved project: \(project.name)")
         } catch {
-            print("Failed to save project: \(error)")
+            print("❌ Failed to save project: \(error)")
         }
     }
     
@@ -181,10 +187,10 @@ public class PersistenceManager {
         do {
             let data = try Data(contentsOf: url)
             let projectData = try JSONDecoder().decode(ProjectData.self, from: data)
-            print("Loaded project: \(project.name)")
+            print("✅ Loaded project: \(project.name)")
             return projectData
         } catch {
-            print("Failed to load project: \(error)")
+            print("❌ Failed to load project: \(error)")
             return nil
         }
     }

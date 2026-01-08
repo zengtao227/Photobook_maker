@@ -4,6 +4,7 @@ struct InspectorPanel: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(BookContext.self) private var bookContext
     @Environment(EditorState.self) private var editorState
+    @Environment(LocalizationManager.self) private var localization
     
     @State private var showStickerPicker = false
     @State private var stickerTargetIsLeft = true
@@ -33,61 +34,65 @@ struct InspectorPanel: View {
     
     private var toolsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("工具")
+            Text(localization.localized(.tools))
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
             
             // Add Text Row
             HStack(spacing: 12) {
                 Button {
-                    editorState.addTextLayer(isLeftPage: true)
+                    editorState.addTextLayer(text: localization.localized(.doubleClickToEdit), isLeftPage: true)
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "textformat")
                             .font(.title2)
-                        Text("左页文字")
+                        Text(localization.localized(.leftPageText))
                             .font(.caption)
                     }
                     .frame(width: 70, height: 60)
                 }
                 .buttonStyle(.bordered)
-                .help("在左页添加文字")
+                .help(localization.localized(.leftPageText))
                 
                 Button {
-                    editorState.addTextLayer(isLeftPage: false)
+                    editorState.addTextLayer(text: localization.localized(.doubleClickToEdit), isLeftPage: false)
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "textformat")
                             .font(.title2)
-                        Text("右页文字")
+                        Text(localization.localized(.rightPageText))
                             .font(.caption)
                     }
                     .frame(width: 70, height: 60)
                 }
                 .buttonStyle(.bordered)
-                .help("在右页添加文字")
+                .help(localization.localized(.rightPageText))
             }
             
             Divider()
             
-            // Stickers Section - Inline display with expandable picker
+            // Stickers Section - Inline display with popover picker
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("贴纸")
+                    Text(localization.localized(.stickers))
                         .font(.subheadline.bold())
                         .foregroundColor(themeManager.theme.textColor)
                     Spacer()
                     Button {
-                        showStickerPicker = true
+                        showStickerPicker.toggle()
                     } label: {
                         HStack(spacing: 4) {
-                            Text("更多")
+                            Text(localization.localized(.more))
                             Image(systemName: "chevron.right")
                         }
                         .font(.caption)
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(themeManager.theme.accentColor)
+                    .popover(isPresented: $showStickerPicker, arrowEdge: .leading) {
+                        StickerPickerPopover(isLeftPage: stickerTargetIsLeft)
+                            .frame(width: 300, height: 400)
+                    }
                 }
                 
                 // Quick sticker grid - show common stickers directly
@@ -101,13 +106,13 @@ struct InspectorPanel: View {
                 
                 // Target page selector
                 HStack {
-                    Text("添加到:")
+                    Text(localization.localized(.addTo))
                         .font(.caption)
                         .foregroundColor(themeManager.theme.secondaryTextColor)
                     
                     Picker("", selection: $stickerTargetIsLeft) {
-                        Text("左页").tag(true)
-                        Text("右页").tag(false)
+                        Text(localization.localized(.leftPage)).tag(true)
+                        Text(localization.localized(.rightPage)).tag(false)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 120)
@@ -117,9 +122,6 @@ struct InspectorPanel: View {
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
         .cornerRadius(themeManager.theme.cornerRadius)
-        .sheet(isPresented: $showStickerPicker) {
-            StickerPickerView(isLeftPage: stickerTargetIsLeft)
-        }
     }
     
     // Quick stickers for inline display
@@ -135,13 +137,42 @@ struct InspectorPanel: View {
     
     private var bookSettingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("画册设置")
+            Text(localization.localized(.bookSettings))
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
             
+            // Binding Type Picker - Use Menu instead of Segmented for 4 options
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.localized(.bindingType))
+                    .font(.caption)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
+                
+                // Menu Picker for better display of 4 options
+                Picker(localization.localized(.bindingType), selection: bindingForBindingType) {
+                    ForEach(BookBindingType.allCases, id: \.self) { type in
+                        HStack {
+                            Image(systemName: bindingTypeIcon(type))
+                            Text(bindingTypeName(type))
+                        }
+                        .tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Binding type description - FIXED: Now shows correct description
+                Text(bindingTypeDescription(for: editorState.bookStructure.bindingType))
+                    .font(.caption2)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
+                    .padding(.top, 2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            Divider()
+            
             // Preset Picker
             VStack(alignment: .leading, spacing: 8) {
-                Text("尺寸预设")
+                Text(localization.localized(.sizePreset))
                     .font(.caption)
                     .foregroundColor(themeManager.theme.secondaryTextColor)
                 
@@ -156,14 +187,14 @@ struct InspectorPanel: View {
             // Custom Dimensions (Visible only if Custom)
             if bookContext.pageSize == .custom {
                 HStack {
-                    dimensionField("宽度", value: Bindable(bookContext).customWidth)
-                    dimensionField("高度", value: Bindable(bookContext).customHeight)
+                    dimensionField(localization.localized(.width), value: Bindable(bookContext).customWidth)
+                    dimensionField(localization.currentLanguage == .chinese ? "高度" : "Height", value: Bindable(bookContext).customHeight)
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
             } else {
                 // Read-only display
                 HStack {
-                    Text("尺寸:")
+                    Text("\(localization.localized(.size)):")
                         .foregroundColor(themeManager.theme.secondaryTextColor)
                     Spacer()
                     Text(bookContext.dimensionString)
@@ -172,29 +203,129 @@ struct InspectorPanel: View {
                 }
                 .padding(.top, 4)
             }
+            
+            // Page count info
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("\(localization.localized(.totalPagesLabel)):")
+                        .font(.caption)
+                        .foregroundColor(themeManager.theme.secondaryTextColor)
+                    Spacer()
+                    Text("\(totalPageCount) \(localization.localized(.pages))")
+                        .font(.caption.bold())
+                        .foregroundColor(themeManager.theme.textColor)
+                }
+                
+                // FIXED: Only show validation for saddle stitch
+                if editorState.bookStructure.bindingType == .saddleStitch {
+                    let remainder = totalPageCount % 4
+                    if remainder != 0 {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(localization.currentLanguage == .chinese 
+                                ? "骑马钉需要 4 的倍数，还需 \(4 - remainder) 页"
+                                : "Saddle stitch needs multiple of 4, need \(4 - remainder) more")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(localization.localized(.pagesValid))
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+                
+                HStack {
+                    Text("\(localization.localized(.spineWidth)):")
+                        .font(.caption)
+                        .foregroundColor(themeManager.theme.secondaryTextColor)
+                    Spacer()
+                    Text(String(format: "%.1f mm", editorState.bookStructure.spineWidthMM))
+                        .font(.caption)
+                        .foregroundColor(themeManager.theme.textColor)
+                }
+            }
         }
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
         .cornerRadius(themeManager.theme.cornerRadius)
     }
     
+    // MARK: - Binding Type Helpers
+    
+    private var bindingForBindingType: Binding<BookBindingType> {
+        Binding(
+            get: { editorState.bookStructure.bindingType },
+            set: { newType in
+                editorState.bookStructure.bindingType = newType
+                editorState.bookStructure.paperThicknessMM = newType.defaultPaperThicknessMM
+                editorState.lastModified = Date()
+                editorState.updateCounter += 1
+            }
+        )
+    }
+    
+    private func bindingTypeIcon(_ type: BookBindingType) -> String {
+        switch type {
+        case .softcover: return "book.closed"
+        case .hardcover: return "book.closed.fill"
+        case .layflat: return "book.pages"
+        case .saddleStitch: return "paperclip"
+        }
+    }
+    
+    // Localized binding type name
+    private func bindingTypeName(_ type: BookBindingType) -> String {
+        switch type {
+        case .softcover: return localization.localized(.softcover)
+        case .hardcover: return localization.localized(.hardcover)
+        case .layflat: return localization.localized(.layflat)
+        case .saddleStitch: return localization.localized(.saddleStitch)
+        }
+    }
+    
+    // Localized binding type description
+    private func bindingTypeDescription(for type: BookBindingType) -> String {
+        switch type {
+        case .softcover:
+            return localization.localized(.softcoverDesc)
+        case .hardcover:
+            return localization.localized(.hardcoverDesc)
+        case .layflat:
+            return localization.localized(.layflatDesc)
+        case .saddleStitch:
+            return localization.localized(.saddleStitchDesc)
+        }
+    }
+    
+    private var totalPageCount: Int {
+        editorState.bookStructure.totalInnerPages + 2 // +2 for covers
+    }
+    
     // MARK: - Photo Layer Settings Section
     
     private func photoLayerSettingsSection(for layer: PhotoLayer) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("图层设置")
+            Text(localization.localized(.layerSettings))
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
             
             // Border Settings
             VStack(alignment: .leading, spacing: 8) {
-                Text("边框")
+                Text(localization.localized(.border))
                     .font(.subheadline.bold())
                     .foregroundColor(themeManager.theme.textColor)
                 
                 // Border Style Picker - Visual preview
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("样式")
+                    Text(localization.localized(.style))
                         .font(.caption)
                         .foregroundColor(themeManager.theme.secondaryTextColor)
                     
@@ -213,7 +344,7 @@ struct InspectorPanel: View {
                 
                 // Border Width
                 HStack {
-                    Text("宽度")
+                    Text(localization.localized(.width))
                         .font(.caption)
                     Spacer()
                     Text(String(format: "%.0f px", layer.borderWidth))
@@ -224,7 +355,7 @@ struct InspectorPanel: View {
                 
                 // Corner Radius
                 HStack {
-                    Text("圆角")
+                    Text(localization.localized(.cornerRadius))
                         .font(.caption)
                     Spacer()
                     Text(String(format: "%.0f px", layer.borderCornerRadius))
@@ -235,7 +366,7 @@ struct InspectorPanel: View {
                 
                 // Border Color
                 HStack {
-                    Text("颜色")
+                    Text(localization.localized(.color))
                         .font(.caption)
                     Spacer()
                     ColorPicker("", selection: bindingForBorderColor(layer))
@@ -247,12 +378,12 @@ struct InspectorPanel: View {
             
             // Feathering Settings
             VStack(alignment: .leading, spacing: 8) {
-                Text("边缘羽化")
+                Text(localization.localized(.feathering))
                     .font(.subheadline.bold())
                     .foregroundColor(themeManager.theme.textColor)
                 
                 HStack {
-                    Text("羽化程度")
+                    Text(localization.localized(.featherAmount))
                         .font(.caption)
                     Spacer()
                     Text(String(format: "%.0f px", layer.feathering))
@@ -266,13 +397,13 @@ struct InspectorPanel: View {
             
             // Shadow Settings
             VStack(alignment: .leading, spacing: 8) {
-                Text("阴影")
+                Text(localization.localized(.shadow))
                     .font(.subheadline.bold())
                     .foregroundColor(themeManager.theme.textColor)
                 
                 // Shadow Radius
                 HStack {
-                    Text("模糊半径")
+                    Text(localization.localized(.blurRadius))
                         .font(.caption)
                     Spacer()
                     Text(String(format: "%.0f", layer.shadowRadius))
@@ -283,7 +414,7 @@ struct InspectorPanel: View {
                 
                 // Shadow Opacity
                 HStack {
-                    Text("透明度")
+                    Text(localization.localized(.opacity))
                         .font(.caption)
                     Spacer()
                     Text(String(format: "%.0f%%", layer.shadowOpacity * 100))
@@ -297,12 +428,12 @@ struct InspectorPanel: View {
             
             // Quick Actions
             HStack {
-                Button("滤镜") {
+                Button(localization.localized(.filter)) {
                     editorState.startFiltering(layer.id)
                 }
                 .buttonStyle(.bordered)
                 
-                Button("裁剪") {
+                Button(localization.localized(.crop)) {
                     editorState.startCropping(layer.id)
                 }
                 .buttonStyle(.bordered)
@@ -317,16 +448,16 @@ struct InspectorPanel: View {
     
     private func textLayerSettingsSection(for layer: TextLayer) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("文字设置")
+            Text(localization.localized(.textSettings))
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
             
             // Text Content
             VStack(alignment: .leading, spacing: 4) {
-                Text("内容")
+                Text(localization.localized(.content))
                     .font(.caption)
                     .foregroundColor(themeManager.theme.secondaryTextColor)
-                TextField("文字内容", text: bindingForTextContent(layer))
+                TextField(localization.localized(.editText), text: bindingForTextContent(layer))
                     .textFieldStyle(.roundedBorder)
             }
             
@@ -334,12 +465,12 @@ struct InspectorPanel: View {
             
             // Font Style
             VStack(alignment: .leading, spacing: 8) {
-                Text("样式")
+                Text(localization.localized(.style))
                     .font(.subheadline.bold())
                 
                 // Font Picker
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("字体")
+                    Text(localization.localized(.font))
                         .font(.caption)
                         .foregroundColor(themeManager.theme.secondaryTextColor)
                     
@@ -355,7 +486,7 @@ struct InspectorPanel: View {
                 }
                 
                 HStack {
-                    Text("字号")
+                    Text(localization.localized(.fontSize))
                         .font(.caption)
                     Spacer()
                     Text("\(Int(layer.fontSize)) pt")
@@ -384,12 +515,12 @@ struct InspectorPanel: View {
             
             // Alignment
             VStack(alignment: .leading, spacing: 8) {
-                Text("对齐")
+                Text(localization.localized(.alignment))
                     .font(.subheadline.bold())
                 
                 Picker("", selection: bindingForAlignment(layer)) {
                     ForEach(TextLayer.TextAlignment.allCases, id: \.self) { align in
-                        Text(align.rawValue).tag(align)
+                        Text(align.displayName(localization: localization)).tag(align)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -397,7 +528,7 @@ struct InspectorPanel: View {
             
             Divider()
             
-            Button("编辑文字") {
+            Button(localization.localized(.editText)) {
                 editorState.startTextEditing(layer.id)
             }
             .buttonStyle(.borderedProminent)

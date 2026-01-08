@@ -19,6 +19,24 @@ public struct PDFExportConfig {
     /// Page size in points (without bleed)
     public var pageSize: CGSize
     
+    /// Include crop marks
+    public var includeCropMarks: Bool = false
+    
+    /// Include registration marks
+    public var includeRegistrationMarks: Bool = false
+    
+    /// Include color bars
+    public var includeColorBars: Bool = false
+    
+    /// Include page info
+    public var includePageInfo: Bool = false
+    
+    /// Crop mark length in points
+    public var cropMarkLength: CGFloat = 12
+    
+    /// Crop mark offset from trim edge
+    public var cropMarkOffset: CGFloat = 3
+    
     /// Calculated bleed in points
     public var bleedPoints: CGFloat {
         bleedMM * 2.83465 // 1mm = 2.83465 points
@@ -33,6 +51,19 @@ public struct PDFExportConfig {
             )
         }
         return pageSize
+    }
+    
+    /// Extra margin for print marks
+    public var printMarksMargin: CGFloat {
+        (includeCropMarks || includeRegistrationMarks || includeColorBars) ? 36 : 0
+    }
+    
+    /// Total page size including bleed and print marks margin
+    public var totalPageSize: CGSize {
+        CGSize(
+            width: fullPageSize.width + printMarksMargin * 2,
+            height: fullPageSize.height + printMarksMargin * 2
+        )
     }
     
     /// Scale factor for high DPI rendering
@@ -130,15 +161,34 @@ public class SpreadPDFExporter {
                 config: config
             )
             
+            // Wrap with print marks if needed
+            let finalView: AnyView
+            if config.includeCropMarks || config.includeRegistrationMarks || config.includeColorBars {
+                finalView = AnyView(
+                    PrintMarksWrapper(
+                        content: spreadView,
+                        config: config,
+                        pageNumber: index + 1,
+                        totalPages: spreads.count
+                    )
+                )
+            } else {
+                finalView = AnyView(spreadView)
+            }
+            
+            // Calculate dimensions
+            let totalWidth = config.includeCropMarks ? config.totalPageSize.width * 2 : config.fullPageSize.width * 2
+            let totalHeight = config.includeCropMarks ? config.totalPageSize.height : config.fullPageSize.height
+            
             // Render at high DPI
-            let renderer = ImageRenderer(content: spreadView
-                .frame(width: config.fullPageSize.width * 2, height: config.fullPageSize.height))
+            let renderer = ImageRenderer(content: finalView
+                .frame(width: totalWidth, height: totalHeight))
             renderer.scale = config.scaleFactor
             
             if let cgImage = renderer.cgImage {
                 let size = NSSize(
-                    width: config.fullPageSize.width * 2 * config.scaleFactor,
-                    height: config.fullPageSize.height * config.scaleFactor
+                    width: totalWidth * config.scaleFactor,
+                    height: totalHeight * config.scaleFactor
                 )
                 let nsImage = NSImage(cgImage: cgImage, size: size)
                 
@@ -454,5 +504,261 @@ struct ExportableStickerLayer: View {
         )
         .rotationEffect(.degrees(layer.rotation))
         .position(x: layer.frame.midX, y: layer.frame.midY)
+    }
+}
+
+// MARK: - Print Marks Wrapper
+
+/// Wraps content with professional print marks (crop marks, registration, color bars)
+struct PrintMarksWrapper<Content: View>: View {
+    let content: Content
+    let config: PDFExportConfig
+    let pageNumber: Int
+    let totalPages: Int
+    
+    private let markColor = Color.black
+    private let registrationMarkSize: CGFloat = 10
+    
+    var body: some View {
+        ZStack {
+            // White background for marks area
+            Color.white
+            
+            // Main content centered
+            content
+            
+            // Crop Marks
+            if config.includeCropMarks {
+                cropMarksOverlay
+            }
+            
+            // Registration Marks
+            if config.includeRegistrationMarks {
+                registrationMarksOverlay
+            }
+            
+            // Color Bars
+            if config.includeColorBars {
+                colorBarsOverlay
+            }
+            
+            // Page Info
+            if config.includePageInfo {
+                pageInfoOverlay
+            }
+        }
+        .frame(
+            width: config.totalPageSize.width * 2,
+            height: config.totalPageSize.height
+        )
+    }
+    
+    // MARK: - Crop Marks
+    
+    private var cropMarksOverlay: some View {
+        let margin = config.printMarksMargin
+        let markLength = config.cropMarkLength
+        let offset = config.cropMarkOffset
+        let contentWidth = config.fullPageSize.width * 2
+        let contentHeight = config.fullPageSize.height
+        
+        return ZStack {
+            // Top-Left corner
+            Path { path in
+                // Horizontal
+                path.move(to: CGPoint(x: margin - offset - markLength, y: margin))
+                path.addLine(to: CGPoint(x: margin - offset, y: margin))
+                // Vertical
+                path.move(to: CGPoint(x: margin, y: margin - offset - markLength))
+                path.addLine(to: CGPoint(x: margin, y: margin - offset))
+            }
+            .stroke(markColor, lineWidth: 0.5)
+            
+            // Top-Right corner
+            Path { path in
+                let x = margin + contentWidth
+                // Horizontal
+                path.move(to: CGPoint(x: x + offset, y: margin))
+                path.addLine(to: CGPoint(x: x + offset + markLength, y: margin))
+                // Vertical
+                path.move(to: CGPoint(x: x, y: margin - offset - markLength))
+                path.addLine(to: CGPoint(x: x, y: margin - offset))
+            }
+            .stroke(markColor, lineWidth: 0.5)
+            
+            // Bottom-Left corner
+            Path { path in
+                let y = margin + contentHeight
+                // Horizontal
+                path.move(to: CGPoint(x: margin - offset - markLength, y: y))
+                path.addLine(to: CGPoint(x: margin - offset, y: y))
+                // Vertical
+                path.move(to: CGPoint(x: margin, y: y + offset))
+                path.addLine(to: CGPoint(x: margin, y: y + offset + markLength))
+            }
+            .stroke(markColor, lineWidth: 0.5)
+            
+            // Bottom-Right corner
+            Path { path in
+                let x = margin + contentWidth
+                let y = margin + contentHeight
+                // Horizontal
+                path.move(to: CGPoint(x: x + offset, y: y))
+                path.addLine(to: CGPoint(x: x + offset + markLength, y: y))
+                // Vertical
+                path.move(to: CGPoint(x: x, y: y + offset))
+                path.addLine(to: CGPoint(x: x, y: y + offset + markLength))
+            }
+            .stroke(markColor, lineWidth: 0.5)
+            
+            // Center spine marks (for spreads)
+            Path { path in
+                let centerX = margin + contentWidth / 2
+                // Top
+                path.move(to: CGPoint(x: centerX, y: margin - offset - markLength))
+                path.addLine(to: CGPoint(x: centerX, y: margin - offset))
+                // Bottom
+                path.move(to: CGPoint(x: centerX, y: margin + contentHeight + offset))
+                path.addLine(to: CGPoint(x: centerX, y: margin + contentHeight + offset + markLength))
+            }
+            .stroke(markColor, lineWidth: 0.5)
+        }
+    }
+    
+    // MARK: - Registration Marks
+    
+    private var registrationMarksOverlay: some View {
+        let margin = config.printMarksMargin
+        let contentWidth = config.fullPageSize.width * 2
+        let contentHeight = config.fullPageSize.height
+        let size = registrationMarkSize
+        
+        return ZStack {
+            // Top center
+            RegistrationMark(size: size)
+                .position(x: margin + contentWidth / 2, y: margin / 2)
+            
+            // Bottom center
+            RegistrationMark(size: size)
+                .position(x: margin + contentWidth / 2, y: margin + contentHeight + margin / 2)
+            
+            // Left center
+            RegistrationMark(size: size)
+                .position(x: margin / 2, y: margin + contentHeight / 2)
+            
+            // Right center
+            RegistrationMark(size: size)
+                .position(x: margin + contentWidth + margin / 2, y: margin + contentHeight / 2)
+        }
+    }
+    
+    // MARK: - Color Bars
+    
+    private var colorBarsOverlay: some View {
+        let margin = config.printMarksMargin
+        let contentWidth = config.fullPageSize.width * 2
+        _ = config.fullPageSize.height // contentHeight reserved for future use
+        let barWidth: CGFloat = 8
+        let barHeight: CGFloat = 20
+        
+        let colors: [Color] = [
+            .cyan, Color(red: 1, green: 0, blue: 1), .yellow, .black,
+            .red, .green, .blue,
+            Color(white: 0.25), Color(white: 0.5), Color(white: 0.75), .white
+        ]
+        
+        return VStack {
+            // Top color bar
+            HStack(spacing: 1) {
+                ForEach(0..<colors.count, id: \.self) { index in
+                    Rectangle()
+                        .fill(colors[index])
+                        .frame(width: barWidth, height: barHeight)
+                        .overlay(
+                            Rectangle()
+                                .stroke(Color.black, lineWidth: 0.25)
+                        )
+                }
+            }
+            .position(x: margin + contentWidth / 2, y: margin / 2 - 5)
+            
+            Spacer()
+            
+            // Bottom color bar
+            HStack(spacing: 1) {
+                ForEach(0..<colors.count, id: \.self) { index in
+                    Rectangle()
+                        .fill(colors[index])
+                        .frame(width: barWidth, height: barHeight)
+                        .overlay(
+                            Rectangle()
+                                .stroke(Color.black, lineWidth: 0.25)
+                        )
+                }
+            }
+            .position(x: margin + contentWidth / 2, y: margin / 2 + 5)
+        }
+        .frame(height: config.totalPageSize.height)
+    }
+    
+    // MARK: - Page Info
+    
+    private var pageInfoOverlay: some View {
+        let margin = config.printMarksMargin
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let dateString = dateFormatter.string(from: Date())
+        
+        return VStack {
+            Spacer()
+            
+            HStack {
+                Text("Page \(pageNumber) of \(totalPages)")
+                    .font(.system(size: 6))
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
+                Text("Exported: \(dateString) • \(Int(config.dpi)) DPI")
+                    .font(.system(size: 6))
+                    .foregroundColor(.gray)
+            }
+            .padding(.horizontal, margin + 10)
+            .padding(.bottom, 4)
+        }
+        .frame(width: config.totalPageSize.width * 2, height: config.totalPageSize.height)
+    }
+}
+
+// MARK: - Registration Mark Shape
+
+struct RegistrationMark: View {
+    let size: CGFloat
+    
+    var body: some View {
+        ZStack {
+            // Outer circle
+            Circle()
+                .stroke(Color.black, lineWidth: 0.5)
+                .frame(width: size, height: size)
+            
+            // Cross
+            Path { path in
+                // Horizontal
+                path.move(to: CGPoint(x: -size/2, y: 0))
+                path.addLine(to: CGPoint(x: size/2, y: 0))
+                // Vertical
+                path.move(to: CGPoint(x: 0, y: -size/2))
+                path.addLine(to: CGPoint(x: 0, y: size/2))
+            }
+            .stroke(Color.black, lineWidth: 0.5)
+            
+            // Inner circle
+            Circle()
+                .stroke(Color.black, lineWidth: 0.5)
+                .frame(width: size * 0.4, height: size * 0.4)
+        }
+        .frame(width: size, height: size)
     }
 }

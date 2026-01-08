@@ -32,6 +32,22 @@ struct ProjectBrowserView: View {
                     
                     Spacer()
                     
+                    // Open Projects Folder Button
+                    Button(action: openProjectsFolder) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder")
+                            Text("项目文件夹")
+                        }
+                        .font(.subheadline)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(themeManager.theme.searchFieldColor)
+                        .cornerRadius(8)
+                        .foregroundColor(themeManager.theme.textColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help("打开项目文件夹，可以备份或转移项目文件")
+                    
                     // Theme Toggle
                     Button(action: {
                         themeManager.toggleTheme()
@@ -156,6 +172,14 @@ struct ProjectBrowserView: View {
         }
         renamingProject = nil
     }
+    
+    private func openProjectsFolder() {
+        if let projectsDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("PhotobookPro")
+            .appendingPathComponent("Projects") {
+            NSWorkspace.shared.open(projectsDir)
+        }
+    }
 }
 
 // MARK: - Project Card
@@ -217,11 +241,25 @@ struct ProjectCard: View {
                 onRename()
             }
             
+            Button("在Finder中显示", systemImage: "folder") {
+                showInFinder()
+            }
+            
             Divider()
             
             Button("删除", systemImage: "trash", role: .destructive) {
                 onDelete()
             }
+        }
+    }
+    
+    private func showInFinder() {
+        // Get project file path
+        if let projectsDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("PhotobookPro")
+            .appendingPathComponent("Projects") {
+            let projectFile = projectsDir.appendingPathComponent(project.fileName)
+            NSWorkspace.shared.selectFile(projectFile.path, inFileViewerRootedAtPath: projectsDir.path)
         }
     }
     

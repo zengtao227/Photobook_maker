@@ -3,6 +3,7 @@ import SwiftUI
 struct CanvasView: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(BookContext.self) private var bookContext
+    @FocusState private var isCanvasFocused: Bool
     
     var body: some View {
         GeometryReader { geometry in
@@ -65,6 +66,13 @@ struct CanvasView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .focused($isCanvasFocused)
+        .onAppear {
+            isCanvasFocused = true
+        }
+        .onTapGesture {
+            isCanvasFocused = true
+        }
     }
 }
 
@@ -73,6 +81,7 @@ struct BookPage: View {
     let size: CGSize
     @Environment(ThemeManager.self) private var themeManager
     @Environment(EditorState.self) private var editorState
+    @Environment(BookContext.self) private var bookContext
     @EnvironmentObject var photoStore: PhotoStore // Needed to look up Photo by URL
     
     var pageModel: PageModel {
@@ -81,6 +90,11 @@ struct BookPage: View {
     
     var body: some View {
         GeometryReader { geometry in
+            // 计算缩放比例：显示尺寸 / 逻辑尺寸
+            let logicalSize = bookContext.logicalPageSizeInPoints
+            let displaySize = geometry.size
+            let scale = displaySize.width / logicalSize.width
+            
             ZStack(alignment: .topLeading) {
                 // MARK: - Background Layer (Non-interactive)
                 ZStack {
@@ -88,9 +102,25 @@ struct BookPage: View {
                     Rectangle()
                         .fill(Color.white)
                     
-                    // Grid Lines (Helper)
-                    GridPattern()
-                        .stroke(Color.blue.opacity(0.1), lineWidth: 0.5)
+                    // 如果是空白占位页，显示提示
+                    // -98和-99是空白占位页，-1是封底，0是封面
+                    if pageModel.pageNumber == -98 || pageModel.pageNumber == -99 {
+                        VStack(spacing: 8) {
+                            Image(systemName: "book.closed")
+                                .font(.system(size: 48))
+                                .foregroundColor(Color.gray.opacity(0.2))
+                            Text("内页")
+                                .font(.title3)
+                                .foregroundColor(Color.gray.opacity(0.3))
+                            Text("(不可编辑)")
+                                .font(.caption)
+                                .foregroundColor(Color.gray.opacity(0.3))
+                        }
+                    } else {
+                        // Grid Lines (Helper) - 只在可编辑页面显示
+                        GridPattern()
+                            .stroke(Color.blue.opacity(0.1), lineWidth: 0.5)
+                    }
                     
                     // Inner Shadow (Simulate binding curve)
                     HStack {
@@ -117,8 +147,13 @@ struct BookPage: View {
                 
                 // MARK: - Interactive Layers (On Top)
                 ForEach(pageModel.layers) { wrapper in
-                    InteractiveLayer(wrapper: wrapper, isLeftPage: isLeft)
-                        .zIndex(1000) // Force layers to be on top
+                    InteractiveLayer(
+                        wrapper: wrapper, 
+                        isLeftPage: isLeft,
+                        scale: scale,
+                        logicalPageSize: logicalSize
+                    )
+                    .zIndex(1000) // Force layers to be on top
                 }
                 
                 // MARK: - Bleed Guide Overlay (Phase 3)
@@ -145,14 +180,20 @@ struct BookPage: View {
             // MARK: - Keyboard Shortcuts
             .focusable() // CRITICAL: Enable keyboard input
             .onKeyPress(.delete) {
-                print("DEBUG: Delete key pressed")
-                editorState.deleteSelectedLayer()
-                return .handled
+                print("DEBUG: Delete key pressed, selected layer: \(String(describing: editorState.selectedLayerId))")
+                if editorState.selectedLayerId != nil {
+                    editorState.deleteSelectedLayer()
+                    return .handled
+                }
+                return .ignored
             }
             .onKeyPress(.deleteForward) {
-                print("DEBUG: Delete forward key pressed")
-                editorState.deleteSelectedLayer()
-                return .handled
+                print("DEBUG: Delete forward key pressed, selected layer: \(String(describing: editorState.selectedLayerId))")
+                if editorState.selectedLayerId != nil {
+                    editorState.deleteSelectedLayer()
+                    return .handled
+                }
+                return .ignored
             }
             // MARK: - Full Screen Crop Modal
             // We use fullScreenCover to provide a dedicated editing environment
@@ -246,10 +287,35 @@ struct BookPage: View {
             }
             // MARK: - Drop Handling
             .dropDestination(for: URL.self) { items, location in
+                // 只有-98和-99是空白占位页（不可编辑）
+                // -1是封底，0是封面，>0是内页，都可以编辑
+                guard pageModel.pageNumber != -98 && pageModel.pageNumber != -99 else {
+                    print("DEBUG: Cannot drop on blank placeholder page (pageNumber: \(pageModel.pageNumber))")
+                    return false
+                }
+                
+                // 封面（pageNumber=0）只能在左页编辑
+                if pageModel.pageNumber == 0 && !isLeft {
+                    print("DEBUG: Cannot drop on front cover right page (inner side)")
+                    return false
+                }
+                
+                // 封底（pageNumber=-1）只能在右页编辑
+                if pageModel.pageNumber == -1 && isLeft {
+                    print("DEBUG: Cannot drop on back cover left page (inner side)")
+                    return false
+                }
+                
                 guard let url = items.first else { return false }
                 
                 if let photo = photoStore.allPhotos.first(where: { $0.url == url }) {
-                    editorState.addPhotoLayer(photo: photo, isLeftPage: isLeft, center: location)
+                    // 传递scale，让EditorState将显示坐标转换为逻辑坐标
+                    editorState.addPhotoLayer(
+                        photo: photo, 
+                        isLeftPage: isLeft, 
+                        center: location,
+                        scale: scale
+                    )
                     return true
                 }
                 return false
@@ -422,14 +488,40 @@ struct PhotoLayerElement: View {
 struct InteractiveLayer: View {
     let wrapper: AnyLayer
     let isLeftPage: Bool
+    let scale: CGFloat // 显示缩放比例
+    let logicalPageSize: CGSize // 逻辑页面尺寸
     @Environment(EditorState.self) private var editorState
     
     // MARK: - Transient Gesture State
     @State private var transientFrame: CGRect? = nil
     @State private var transientRotation: Double? = nil // Transient rotation state
     
+    /// 将逻辑坐标转换为显示坐标
+    private func toDisplayFrame(_ logicalFrame: CGRect) -> CGRect {
+        return CGRect(
+            x: logicalFrame.origin.x * scale,
+            y: logicalFrame.origin.y * scale,
+            width: logicalFrame.size.width * scale,
+            height: logicalFrame.size.height * scale
+        )
+    }
+    
+    /// 将显示坐标转换为逻辑坐标
+    private func toLogicalFrame(_ displayFrame: CGRect) -> CGRect {
+        return CGRect(
+            x: displayFrame.origin.x / scale,
+            y: displayFrame.origin.y / scale,
+            width: displayFrame.size.width / scale,
+            height: displayFrame.size.height / scale
+        )
+    }
+    
     private func currentDisplayFrame(for layer: PhotoLayer) -> CGRect {
-        transientFrame ?? layer.frame
+        if let transient = transientFrame {
+            return transient
+        }
+        // 将逻辑坐标转换为显示坐标
+        return toDisplayFrame(layer.frame)
     }
     
     private func currentRotation(for layer: PhotoLayer) -> Double {
@@ -479,8 +571,10 @@ struct InteractiveLayer: View {
                                 set: { self.transientRotation = $0 }
                             ),
                             onCommitFrame: {
-                                if let finalFrame = transientFrame {
-                                    editorState.updateLayerFrame(photoLayer.id, newFrame: finalFrame)
+                                if let finalDisplayFrame = transientFrame {
+                                    // 转换为逻辑坐标再保存
+                                    let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                                    editorState.updateLayerFrame(photoLayer.id, newFrame: logicalFrame)
                                     transientFrame = nil
                                 }
                             },
@@ -512,29 +606,61 @@ struct InteractiveLayer: View {
                     }
             )
             
-            // 2. Drag to Move (Normal Priority, but blocked by high priority double tap if it fails?)
-            // Actually, DragGesture usually overrides Tap. 
-            // So we leave Drag as standard .gesture
+            // 2. Drag to Move
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
                         guard isSelected, !isCropping else { return }
                         
-                        if transientFrame == nil {
-                            transientFrame = photoLayer.frame
+                        // FIXED: Compensate for rotation when dragging
+                        let radians = -rotation * .pi / 180.0
+                        let cos = Darwin.cos(radians)
+                        let sin = Darwin.sin(radians)
+                        
+                        // Rotate the translation vector
+                        let adjustedX = value.translation.width * cos - value.translation.height * sin
+                        let adjustedY = value.translation.width * sin + value.translation.height * cos
+                        
+                        // 从初始显示frame开始计算新位置
+                        let originalDisplayFrame = toDisplayFrame(photoLayer.frame)
+                        var newDisplayFrame = originalDisplayFrame
+                        newDisplayFrame.origin.x += adjustedX
+                        newDisplayFrame.origin.y += adjustedY
+                        
+                        // 边界检查：封面和封底只能在指定页面编辑
+                        let pageModel = isLeftPage ? editorState.leftPage : editorState.rightPage
+                        let displayPageSize = CGSize(width: logicalPageSize.width * scale, height: logicalPageSize.height * scale)
+                        
+                        if pageModel.pageNumber == 0 {
+                            // 封面：只能在左页（外侧）编辑
+                            if !isLeftPage {
+                                return // 右页不可编辑，忽略拖动
+                            }
+                            // 限制在左页范围内，不能超出边界
+                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
+                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
+                        } else if pageModel.pageNumber == -1 {
+                            // 封底：只能在右页（外侧）编辑
+                            if isLeftPage {
+                                return // 左页不可编辑，忽略拖动
+                            }
+                            // 限制在右页范围内，不能超出边界
+                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
+                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
+                        } else if pageModel.pageNumber > 0 {
+                            // 内页：限制在当前页面范围内，不能跨页
+                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
+                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
                         }
                         
-                        let originFrame = photoLayer.frame
-                        var newFrame = originFrame
-                        newFrame.origin.x += value.translation.width
-                        newFrame.origin.y += value.translation.height
-                        
-                        transientFrame = newFrame
+                        transientFrame = newDisplayFrame
                     }
                     .onEnded { _ in
                         guard isSelected, !isCropping else { return }
-                        if let finalFrame = transientFrame {
-                            editorState.updateLayerFrame(photoLayer.id, newFrame: finalFrame)
+                        if let finalDisplayFrame = transientFrame {
+                            // 转换为逻辑坐标再保存
+                            let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                            editorState.updateLayerFrame(photoLayer.id, newFrame: logicalFrame)
                             transientFrame = nil
                         }
                     }
@@ -601,7 +727,8 @@ struct InteractiveLayer: View {
         }
         // MARK: - Text Layer Rendering
         else if let textLayer = currentLayer as? TextLayer {
-            let displayFrame = transientFrame ?? textLayer.frame
+            // 转换为显示坐标
+            let displayFrame = transientFrame ?? toDisplayFrame(textLayer.frame)
             let rotation = transientRotation ?? textLayer.rotation
             let isSelected = editorState.selectedLayerId == textLayer.id
             let isEditing = editorState.editingTextLayerId == textLayer.id
@@ -638,8 +765,10 @@ struct InteractiveLayer: View {
                         ),
                         lockAspectRatio: false, // Text can resize freely
                         onCommitFrame: {
-                            if let frame = transientFrame {
-                                editorState.updateLayerFrame(textLayer.id, newFrame: frame)
+                            if let finalDisplayFrame = transientFrame {
+                                // 转换为逻辑坐标
+                                let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                                editorState.updateLayerFrame(textLayer.id, newFrame: logicalFrame)
                             }
                             transientFrame = nil
                         },
@@ -660,16 +789,24 @@ struct InteractiveLayer: View {
                 DragGesture()
                     .onChanged { value in
                         if !isEditing {
+                            if transientFrame == nil {
+                                transientFrame = toDisplayFrame(textLayer.frame)
+                            }
+                            
+                            // 从原始frame开始计算
+                            let originalDisplayFrame = toDisplayFrame(textLayer.frame)
                             let newOrigin = CGPoint(
-                                x: textLayer.frame.origin.x + value.translation.width,
-                                y: textLayer.frame.origin.y + value.translation.height
+                                x: originalDisplayFrame.origin.x + value.translation.width,
+                                y: originalDisplayFrame.origin.y + value.translation.height
                             )
-                            transientFrame = CGRect(origin: newOrigin, size: textLayer.frame.size)
+                            transientFrame = CGRect(origin: newOrigin, size: originalDisplayFrame.size)
                         }
                     }
                     .onEnded { _ in
-                        if let frame = transientFrame {
-                            editorState.updateLayerFrame(textLayer.id, newFrame: frame)
+                        if let finalDisplayFrame = transientFrame {
+                            // 转换为逻辑坐标
+                            let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                            editorState.updateLayerFrame(textLayer.id, newFrame: logicalFrame)
                         }
                         transientFrame = nil
                     }
@@ -720,7 +857,8 @@ struct InteractiveLayer: View {
         }
         // MARK: - Sticker Layer Rendering
         else if let stickerLayer = currentLayer as? StickerLayer {
-            let displayFrame = transientFrame ?? stickerLayer.frame
+            // 转换为显示坐标
+            let displayFrame = transientFrame ?? toDisplayFrame(stickerLayer.frame)
             let rotation = transientRotation ?? stickerLayer.rotation
             let isSelected = editorState.selectedLayerId == stickerLayer.id
             
@@ -740,8 +878,10 @@ struct InteractiveLayer: View {
                             set: { transientRotation = $0 }
                         ),
                         onCommitFrame: {
-                            if let finalFrame = transientFrame {
-                                editorState.updateLayerFrame(stickerLayer.id, newFrame: finalFrame)
+                            if let finalDisplayFrame = transientFrame {
+                                // 转换为逻辑坐标
+                                let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                                editorState.updateLayerFrame(stickerLayer.id, newFrame: logicalFrame)
                                 transientFrame = nil
                             }
                         },
@@ -764,10 +904,13 @@ struct InteractiveLayer: View {
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
                         guard isSelected else { return }
-                        if transientFrame == nil { transientFrame = stickerLayer.frame }
+                        if transientFrame == nil { 
+                            transientFrame = toDisplayFrame(stickerLayer.frame)
+                        }
                         
-                        let originFrame = stickerLayer.frame
-                        var newFrame = originFrame
+                        // 从原始frame开始计算
+                        let originalDisplayFrame = toDisplayFrame(stickerLayer.frame)
+                        var newFrame = originalDisplayFrame
                         newFrame.origin.x += value.translation.width
                         newFrame.origin.y += value.translation.height
                         
@@ -775,8 +918,10 @@ struct InteractiveLayer: View {
                     }
                     .onEnded { _ in
                         guard isSelected else { return }
-                        if let finalFrame = transientFrame {
-                            editorState.updateLayerFrame(stickerLayer.id, newFrame: finalFrame)
+                        if let finalDisplayFrame = transientFrame {
+                            // 转换为逻辑坐标
+                            let logicalFrame = toLogicalFrame(finalDisplayFrame)
+                            editorState.updateLayerFrame(stickerLayer.id, newFrame: logicalFrame)
                             transientFrame = nil
                         }
                     }
@@ -916,38 +1061,51 @@ struct SelectionBorder: View {
     func updateFrame(startFrame: CGRect, drag: CGSize, alignment: Alignment) {
         var newFrame = startFrame
         let ar = startFrame.width / startFrame.height
+        let minSize: CGFloat = 30
         
         if lockAspectRatio {
-            // Proportional scaling
-            let multiplier: CGFloat
+            // 改进的缩放算法：使用更直观的方法
             switch alignment {
             case .bottomTrailing:
-                multiplier = 1.0 + (max(drag.width / startFrame.width, drag.height / startFrame.height))
-                newFrame.size.width = startFrame.width * multiplier
-                newFrame.size.height = newFrame.size.width / ar
-                // Origin remains same
+                // 右下角：向右下拖动放大，向左上拖动缩小
+                let avgDrag = (drag.width + drag.height) / 2.0
+                let newW = max(minSize, startFrame.width + avgDrag)
+                let newH = newW / ar
+                newFrame.size.width = newW
+                newFrame.size.height = newH
+                
             case .topLeading:
-                multiplier = 1.0 - (max(-drag.width / startFrame.width, -drag.height / startFrame.height))
-                let newW = startFrame.width * multiplier
+                // 左上角：向左上拖动放大，向右下拖动缩小
+                let avgDrag = -(drag.width + drag.height) / 2.0
+                let newW = max(minSize, startFrame.width + avgDrag)
                 let newH = newW / ar
-                newFrame.origin.x = startFrame.maxX - newW
-                newFrame.origin.y = startFrame.maxY - newH
+                let widthDiff = startFrame.width - newW
+                let heightDiff = startFrame.height - newH
+                newFrame.origin.x = startFrame.origin.x + widthDiff
+                newFrame.origin.y = startFrame.origin.y + heightDiff
                 newFrame.size.width = newW
                 newFrame.size.height = newH
+                
             case .topTrailing:
-                multiplier = 1.0 + (max(drag.width / startFrame.width, -drag.height / startFrame.height))
-                let newW = startFrame.width * multiplier
+                // 右上角：向右上拖动放大
+                let avgDrag = (drag.width - drag.height) / 2.0
+                let newW = max(minSize, startFrame.width + avgDrag)
                 let newH = newW / ar
-                newFrame.origin.y = startFrame.maxY - newH
+                let heightDiff = startFrame.height - newH
+                newFrame.origin.y = startFrame.origin.y + heightDiff
                 newFrame.size.width = newW
                 newFrame.size.height = newH
+                
             case .bottomLeading:
-                multiplier = 1.0 + (max(-drag.width / startFrame.width, drag.height / startFrame.height))
-                let newW = startFrame.width * multiplier
+                // 左下角：向左下拖动放大
+                let avgDrag = (drag.height - drag.width) / 2.0
+                let newW = max(minSize, startFrame.width + avgDrag)
                 let newH = newW / ar
-                newFrame.origin.x = startFrame.maxX - newW
+                let widthDiff = startFrame.width - newW
+                newFrame.origin.x = startFrame.origin.x + widthDiff
                 newFrame.size.width = newW
                 newFrame.size.height = newH
+                
             default: break
             }
         } else {
@@ -966,7 +1124,7 @@ struct SelectionBorder: View {
             }
         }
         
-        if newFrame.size.width > 30 && newFrame.size.height > 30 {
+        if newFrame.size.width > minSize && newFrame.size.height > minSize {
             self.frame = newFrame
         }
     }
