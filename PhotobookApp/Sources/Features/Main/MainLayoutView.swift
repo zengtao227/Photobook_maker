@@ -54,6 +54,19 @@ struct MainLayoutView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(themeManager.theme.textColor)
+                        
+                        // Swap Left/Right Pages button (only for inner spreads)
+                        if case .innerSpread = editorState.currentTarget {
+                            Button(action: {
+                                editorState.swapLeftRightPages()
+                            }) {
+                                Image(systemName: "arrow.left.arrow.right")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(themeManager.theme.accentColor)
+                            .help(localization.localized(.swapLeftRight))
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)

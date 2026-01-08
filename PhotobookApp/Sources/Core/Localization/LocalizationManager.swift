@@ -248,6 +248,7 @@ public enum LocalizedKey {
     case openStickersFolder
     case importCustomSticker
     case done
+    case swapLeftRight
     
     public var chinese: String {
         switch self {
@@ -384,6 +385,7 @@ public enum LocalizedKey {
         case .openStickersFolder: return "打开贴纸文件夹"
         case .importCustomSticker: return "导入自定义贴纸..."
         case .done: return "完成"
+        case .swapLeftRight: return "交换左右页"
         }
     }
     
@@ -522,6 +524,7 @@ public enum LocalizedKey {
         case .openStickersFolder: return "Open Stickers Folder"
         case .importCustomSticker: return "Import Custom Sticker..."
         case .done: return "Done"
+        case .swapLeftRight: return "Swap Left/Right"
         }
     }
     
@@ -660,6 +663,7 @@ public enum LocalizedKey {
         case .openStickersFolder: return "Sticker-Ordner öffnen"
         case .importCustomSticker: return "Benutzerdefinierten Sticker importieren..."
         case .done: return "Fertig"
+        case .swapLeftRight: return "Links/Rechts tauschen"
         }
     }
     
@@ -798,6 +802,7 @@ public enum LocalizedKey {
         case .openStickersFolder: return "Ouvrir le dossier d'autocollants"
         case .importCustomSticker: return "Importer un autocollant personnalisé..."
         case .done: return "Terminé"
+        case .swapLeftRight: return "Échanger gauche/droite"
         }
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct CanvasView: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(BookContext.self) private var bookContext
+    @Environment(EditorState.self) private var editorState
     @FocusState private var isCanvasFocused: Bool
     
     var body: some View {
@@ -43,21 +44,91 @@ struct CanvasView: View {
                             .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
                         
                         HStack(spacing: 0) {
-                            // Left Page
-                            BookPage(isLeft: true, size: singlePageSize)
-                            
-                            // Spine (Gutter) check
-                            Rectangle()
-                                .fill(LinearGradient(
-                                    colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ))
-                                .frame(width: 2)
-                                .zIndex(1)
-                            
-                            // Right Page
-                            BookPage(isLeft: false, size: singlePageSize)
+                            // 根据当前编辑目标决定显示哪些页面
+                            switch editorState.currentTarget {
+                            case .frontCover:
+                                // 封面：只显示右侧（封面外侧）
+                                Color.clear
+                                    .frame(width: singlePageSize.width)
+                                
+                                // Spine
+                                Rectangle()
+                                    .fill(LinearGradient(
+                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    .frame(width: 2)
+                                    .zIndex(1)
+                                
+                                // 封面（右侧）
+                                BookPage(isLeft: false, size: singlePageSize)
+                                
+                            case .backCover:
+                                // 封底：只显示左侧（封底外侧）
+                                BookPage(isLeft: true, size: singlePageSize)
+                                
+                                // Spine
+                                Rectangle()
+                                    .fill(LinearGradient(
+                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    .frame(width: 2)
+                                    .zIndex(1)
+                                
+                                Color.clear
+                                    .frame(width: singlePageSize.width)
+                                
+                            case .innerSpread(let index):
+                                // 内页：根据是否是第一页或最后一页决定
+                                let isFirstSpread = (index == 0)
+                                let isLastSpread = (index == editorState.spreadCount - 1)
+                                
+                                if isFirstSpread {
+                                    // 第一页：左侧空白（背面是封面）
+                                    Color.clear
+                                        .frame(width: singlePageSize.width)
+                                } else {
+                                    // 左页正常显示
+                                    BookPage(isLeft: true, size: singlePageSize)
+                                }
+                                
+                                // Spine
+                                Rectangle()
+                                    .fill(LinearGradient(
+                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    .frame(width: 2)
+                                    .zIndex(1)
+                                
+                                if isLastSpread {
+                                    // 最后一页：右侧空白（背面是封底）
+                                    Color.clear
+                                        .frame(width: singlePageSize.width)
+                                } else {
+                                    // 右页正常显示
+                                    BookPage(isLeft: false, size: singlePageSize)
+                                }
+                                
+                            case .fullCoverWrap:
+                                // 全包封面：显示完整跨页
+                                BookPage(isLeft: true, size: singlePageSize)
+                                
+                                Rectangle()
+                                    .fill(LinearGradient(
+                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    .frame(width: 2)
+                                    .zIndex(1)
+                                
+                                BookPage(isLeft: false, size: singlePageSize)
+                            }
                         }
                         .aspectRatio(spreadAspectRatio, contentMode: .fit)
                     }
@@ -648,9 +719,8 @@ struct InteractiveLayer: View {
                             newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
                             newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
                         } else if pageModel.pageNumber > 0 {
-                            // 内页：限制在当前页面范围内，不能跨页
-                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
-                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
+                            // 内页：允许自由移动，可以跨页（用于跨页背景等）
+                            // 不再限制在单页范围内
                         }
                         
                         transientFrame = newDisplayFrame

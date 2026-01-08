@@ -205,6 +205,25 @@ public class EditorState {
         navigateToSpread(bookStructure.innerSpreads.count - 1)
     }
     
+    /// Swap left and right pages in current spread
+    public func swapLeftRightPages() {
+        guard case .innerSpread(let index) = currentTarget,
+              index < bookStructure.innerSpreads.count else { return }
+        
+        // Swap the pages
+        let temp = leftPage
+        leftPage = rightPage
+        rightPage = temp
+        
+        // Save the swapped state
+        bookStructure.innerSpreads[index] = (left: leftPage, right: rightPage)
+        
+        lastModified = Date()
+        updateCounter += 1
+        
+        print("🔄 Swapped left and right pages for spread \(index)")
+    }
+    
     /// Delete an inner spread from the book
     public func deleteSpread(at index: Int) {
         guard bookStructure.innerSpreads.count > 1, 
