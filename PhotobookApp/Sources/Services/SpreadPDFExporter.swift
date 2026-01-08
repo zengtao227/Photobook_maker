@@ -330,18 +330,36 @@ struct ExportablePhotoLayer: View {
         .mask(
             Group {
                 if layer.feathering > 0 {
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                         .padding(layer.feathering / 2)
                         .blur(radius: layer.feathering / 2)
                 } else {
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                 }
             }
         )
         // Apply border
         .overlay(
-            RoundedRectangle(cornerRadius: 0)
-                .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
+            Group {
+                if layer.borderStyle == .double {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: layer.borderCornerRadius)
+                            .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
+                        RoundedRectangle(cornerRadius: max(0, layer.borderCornerRadius - 4))
+                            .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: max(1, layer.borderWidth / 3))
+                            .padding(4)
+                    }
+                } else {
+                    RoundedRectangle(cornerRadius: layer.borderCornerRadius)
+                        .stroke(
+                            Color(hex: layer.borderColorHex) ?? .white,
+                            style: StrokeStyle(
+                                lineWidth: layer.borderWidth,
+                                dash: layer.borderStyle.dashPattern
+                            )
+                        )
+                }
+            }
         )
         // Apply shadow
         .shadow(

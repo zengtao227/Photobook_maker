@@ -62,9 +62,29 @@ public struct PhotoLayer: LayerProtocol {
     // Border & Shadow properties (Added for Phase 2.1)
     public var borderWidth: Double = 0.0 // 0 to 20
     public var borderColorHex: String = "#FFFFFF" // Hex color for serialization
+    public var borderStyle: BorderStyle = .solid // Border style
+    public var borderCornerRadius: Double = 0.0 // 0 to 50 (Corner radius)
     public var feathering: Double = 0.0 // 0 to 50 (Edge Feathering)
     public var shadowRadius: Double = 0.0 // 0 to 30
     public var shadowOpacity: Double = 0.5 // 0 to 1
+    
+    // Border Style Enum
+    public enum BorderStyle: String, Codable, CaseIterable {
+        case solid = "实线"
+        case dashed = "虚线"
+        case dotted = "点线"
+        case double = "双线"
+        
+        /// Preview line dash pattern
+        public var dashPattern: [CGFloat] {
+            switch self {
+            case .solid: return []
+            case .dashed: return [8, 4]
+            case .dotted: return [2, 3]
+            case .double: return [] // Special case handled separately
+            }
+        }
+    }
     
     public enum FilterType: String, Codable, CaseIterable, Sendable {
         case none = "原图"

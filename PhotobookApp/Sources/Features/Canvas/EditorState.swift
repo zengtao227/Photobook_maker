@@ -162,10 +162,13 @@ public class EditorState {
     
     // MARK: - Border & Shadow
     
-    func updateLayerBorder(id: LayerID, borderWidth: Double, borderColorHex: String) {
+    func updateLayerBorder(id: LayerID, borderWidth: Double? = nil, borderColorHex: String? = nil, 
+                           borderStyle: PhotoLayer.BorderStyle? = nil, borderCornerRadius: Double? = nil) {
         if var layer = findLayer(id) as? PhotoLayer {
-            layer.borderWidth = borderWidth
-            layer.borderColorHex = borderColorHex
+            if let width = borderWidth { layer.borderWidth = width }
+            if let colorHex = borderColorHex { layer.borderColorHex = colorHex }
+            if let style = borderStyle { layer.borderStyle = style }
+            if let radius = borderCornerRadius { layer.borderCornerRadius = radius }
             updateLayer(layer)
         }
     }
