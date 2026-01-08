@@ -31,10 +31,12 @@ public class ThemeManager {
     // View Modifier Integration
     public struct Provider: ViewModifier {
         @State private var manager = ThemeManager()
+        @State private var localization = LocalizationManager()
         
         public func body(content: Content) -> some View {
             content
                 .environment(manager)
+                .environment(localization)
                 .preferredColorScheme(manager.currentMode == .studio ? .light : .dark)
         }
     }

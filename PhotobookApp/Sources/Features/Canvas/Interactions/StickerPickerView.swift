@@ -3,6 +3,7 @@ import SwiftUI
 struct StickerPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(EditorState.self) private var editorState
+    @State private var stickerManager = StickerManager()
     
     let isLeftPage: Bool
     
@@ -11,6 +12,7 @@ struct StickerPickerView: View {
     
     enum StickerCategory: String, CaseIterable, Identifiable {
         case favorites = "精选/收藏"
+        case custom = "自定义"
         case family = "家庭活动"
         case weather = "天气"
         case holiday = "节日/生日"
@@ -22,6 +24,7 @@ struct StickerPickerView: View {
         var icon: String {
             switch self {
             case .favorites: return "star.fill"
+            case .custom: return "folder.fill"
             case .family: return "figure.2.and.child.holdinghands"
             case .weather: return "cloud.sun.fill"
             case .holiday: return "gift.fill"
