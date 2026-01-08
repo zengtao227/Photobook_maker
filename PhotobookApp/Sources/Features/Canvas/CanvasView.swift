@@ -248,6 +248,40 @@ struct BookPage: View {
                     .zIndex(-1) // Behind layers
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            // MARK: - Bleed Guide Overlay
+            .overlay(
+                Group {
+                    if editorState.showBleedGuide && pageModel.pageNumber >= -1 {
+                        // 只在可编辑页面显示出血线
+                        let bleedInset = editorState.bleedPoints * scale
+                        
+                        Rectangle()
+                            .strokeBorder(
+                                style: StrokeStyle(
+                                    lineWidth: 1,
+                                    dash: [5, 3]
+                                )
+                            )
+                            .foregroundColor(.red.opacity(0.6))
+                            .padding(bleedInset)
+                        
+                        // 出血区域标签
+                        VStack {
+                            HStack {
+                                Text("BLEED: \(String(format: "%.1f", editorState.bleedMM))mm")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.red.opacity(0.8))
+                                    .padding(2)
+                                    .background(Color.white.opacity(0.8))
+                                    .cornerRadius(2)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                        .padding(bleedInset + 4)
+                    }
+                }
+            )
             // MARK: - Keyboard Shortcuts
             .focusable() // CRITICAL: Enable keyboard input
             .onKeyPress(.delete) {
@@ -481,30 +515,32 @@ struct PhotoLayerElement: View {
         // Apply border
         .overlay(
             Group {
-                if layer.borderStyle == .double {
-                    // Double border style
-                    ZStack {
-                        RoundedRectangle(cornerRadius: layer.borderCornerRadius)
+                if layer.borderWidth > 0 {
+                    if layer.borderStyle == .double {
+                        // Double border style
+                        ZStack {
+                            RoundedRectangle(cornerRadius: layer.borderCornerRadius)
+                                .stroke(Color(hex: layer.borderColorHex), lineWidth: layer.borderWidth)
+                            
+                            // Inner line
+                            RoundedRectangle(cornerRadius: max(0, layer.borderCornerRadius - 4))
+                                .stroke(Color(hex: layer.borderColorHex), lineWidth: max(1, layer.borderWidth / 3))
+                                .padding(4)
+                        }
+                    } else if layer.borderStyle == .stamp {
+                        StampShape()
                             .stroke(Color(hex: layer.borderColorHex), lineWidth: layer.borderWidth)
-                        
-                        // Inner line
-                        RoundedRectangle(cornerRadius: max(0, layer.borderCornerRadius - 4))
-                            .stroke(Color(hex: layer.borderColorHex), lineWidth: max(1, layer.borderWidth / 3))
-                            .padding(4)
-                    }
-                } else if layer.borderStyle == .stamp {
-                    StampShape()
-                        .stroke(Color(hex: layer.borderColorHex), lineWidth: layer.borderWidth)
-                } else {
-                    // Solid, Dashed, Dotted
-                    RoundedRectangle(cornerRadius: layer.borderCornerRadius)
-                        .stroke(
-                            Color(hex: layer.borderColorHex),
-                            style: StrokeStyle(
-                                lineWidth: layer.borderWidth,
-                                dash: layer.borderStyle.dashPattern
+                    } else {
+                        // Solid, Dashed, Dotted
+                        RoundedRectangle(cornerRadius: layer.borderCornerRadius)
+                            .stroke(
+                                Color(hex: layer.borderColorHex),
+                                style: StrokeStyle(
+                                    lineWidth: layer.borderWidth,
+                                    dash: layer.borderStyle.dashPattern
+                                )
                             )
-                        )
+                    }
                 }
             }
         )

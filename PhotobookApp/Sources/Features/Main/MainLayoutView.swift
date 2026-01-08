@@ -75,6 +75,22 @@ struct MainLayoutView: View {
                     
                     Spacer()
                     
+                    // Bleed Guide Toggle
+                    Button(action: {
+                        editorState.showBleedGuide.toggle()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: editorState.showBleedGuide ? "ruler.fill" : "ruler")
+                            Text("Bleed")
+                        }
+                        .padding(8)
+                        .background(editorState.showBleedGuide ? themeManager.theme.accentColor.opacity(0.2) : themeManager.theme.searchFieldColor)
+                        .cornerRadius(8)
+                        .foregroundColor(editorState.showBleedGuide ? themeManager.theme.accentColor : themeManager.theme.textColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Toggle Bleed Guide / 切换出血线显示")
+                    
                     // Save Button
                     Button(action: saveProject) {
                         HStack(spacing: 4) {
