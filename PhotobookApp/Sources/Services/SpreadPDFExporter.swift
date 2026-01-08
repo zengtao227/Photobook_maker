@@ -329,7 +329,9 @@ struct ExportablePhotoLayer: View {
         // Apply feathering
         .mask(
             Group {
-                if layer.feathering > 0 {
+                if layer.borderStyle == .stamp {
+                    StampShape().fill(style: FillStyle(eoFill: true))
+                } else if layer.feathering > 0 {
                     RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                         .padding(layer.feathering / 2)
                         .blur(radius: layer.feathering / 2)
@@ -349,6 +351,9 @@ struct ExportablePhotoLayer: View {
                             .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: max(1, layer.borderWidth / 3))
                             .padding(4)
                     }
+                } else if layer.borderStyle == .stamp {
+                    StampShape()
+                        .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
                 } else {
                     RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                         .stroke(

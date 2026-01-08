@@ -330,7 +330,9 @@ struct PhotoLayerElement: View {
         // Apply Feathering (Masking)
         .mask(
             Group {
-                if layer.feathering > 0 {
+                if layer.borderStyle == .stamp {
+                    StampShape().fill(style: FillStyle(eoFill: true))
+                } else if layer.feathering > 0 {
                     RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                         .padding(layer.feathering / 2)
                         .blur(radius: layer.feathering / 2)
@@ -353,6 +355,9 @@ struct PhotoLayerElement: View {
                             .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: max(1, layer.borderWidth / 3))
                             .padding(4)
                     }
+                } else if layer.borderStyle == .stamp {
+                    StampShape()
+                        .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
                 } else {
                     // Solid, Dashed, Dotted
                     RoundedRectangle(cornerRadius: layer.borderCornerRadius)
@@ -1086,5 +1091,55 @@ struct BleedLabel: View {
             .padding(.vertical, 2)
             .background(Color.white.opacity(0.85))
             .cornerRadius(3)
+    }
+    }
+}
+
+// MARK: - Stamp Shape
+
+struct StampShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let holeRadius: CGFloat = 8
+        let spacing: CGFloat = 20
+        
+        var path = Path()
+        // 1. The main rectangle
+        path.addRect(rect)
+        
+        // 2. The holes (ellipses)
+        // By using eoFill (Even-Odd rule), overlapping areas will be removed (holes)
+        
+        // Top edge
+        let countX = Int(rect.width / spacing)
+        let gapX = rect.width / CGFloat(countX) // Adjusted spacing to fit perfectly
+        
+        for i in 0...countX {
+             let x = CGFloat(i) * gapX
+             path.addEllipse(in: CGRect(x: x - holeRadius, y: -holeRadius, width: holeRadius*2, height: holeRadius*2))
+        }
+        
+        // Bottom edge
+        for i in 0...countX {
+             let x = CGFloat(i) * gapX
+             path.addEllipse(in: CGRect(x: x - holeRadius, y: rect.height - holeRadius, width: holeRadius*2, height: holeRadius*2))
+        }
+        
+        // Y-axis holes
+        let countY = Int(rect.height / spacing)
+        let gapY = rect.height / CGFloat(countY)
+        
+        // Left edge
+        for i in 0...countY {
+             let y = CGFloat(i) * gapY
+             path.addEllipse(in: CGRect(x: -holeRadius, y: y - holeRadius, width: holeRadius*2, height: holeRadius*2))
+        }
+        
+        // Right edge
+        for i in 0...countY {
+             let y = CGFloat(i) * gapY
+             path.addEllipse(in: CGRect(x: rect.width - holeRadius, y: y - holeRadius, width: holeRadius*2, height: holeRadius*2))
+        }
+        
+        return path
     }
 }

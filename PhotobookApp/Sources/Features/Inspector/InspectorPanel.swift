@@ -486,6 +486,18 @@ struct InspectorPanel: View {
     // Available fonts for text layers
     private var availableFonts: [String] {
         [
+            // Chinese Fonts (MacOS System)
+            "PingFang SC",
+            "PingFang TC",
+            "Songti SC",
+            "Kaiti SC",
+            "Heiti SC",
+            "STXingkai",     // 华文行楷
+            "STYuanti",      // 华文圆体
+            "Wawa SC",       // 娃娃体
+            "Libian SC",     // 隶变
+            
+            // English Fonts
             "Helvetica Neue",
             "Arial",
             "Times New Roman",
@@ -604,6 +616,7 @@ struct BorderStyleButton: View {
                         .frame(width: 40, height: 30)
                     
                     // Draw the border style preview
+                    // Draw the border style preview
                     if style == .double {
                         // Double border
                         RoundedRectangle(cornerRadius: 3)
@@ -612,6 +625,11 @@ struct BorderStyleButton: View {
                         RoundedRectangle(cornerRadius: 2)
                             .stroke(color, lineWidth: 1)
                             .frame(width: 28, height: 18)
+                    } else if style == .stamp {
+                        // Stamp Border Preview (Simulated with dots)
+                        RoundedRectangle(cornerRadius: 3)
+                            .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [0.1, 6]))
+                            .frame(width: 34, height: 24)
                     } else {
                         RoundedRectangle(cornerRadius: 3)
                             .stroke(

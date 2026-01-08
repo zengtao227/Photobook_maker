@@ -74,6 +74,7 @@ public struct PhotoLayer: LayerProtocol {
         case dashed = "虚线"
         case dotted = "点线"
         case double = "双线"
+        case stamp = "邮票"
         
         /// Preview line dash pattern
         public var dashPattern: [CGFloat] {
@@ -81,7 +82,7 @@ public struct PhotoLayer: LayerProtocol {
             case .solid: return []
             case .dashed: return [8, 4]
             case .dotted: return [2, 3]
-            case .double: return [] // Special case handled separately
+            case .double, .stamp: return [] // Special cases handled separately
             }
         }
     }

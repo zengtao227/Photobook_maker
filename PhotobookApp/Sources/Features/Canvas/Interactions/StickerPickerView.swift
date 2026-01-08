@@ -139,6 +139,13 @@ struct StickerPickerView: View {
                 .padding()
             }
             .navigationTitle(selectedCategory.rawValue)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
         }
         .frame(minWidth: 600, minHeight: 400)
         .fileImporter(isPresented: $isImporting, allowedContentTypes: [.image]) { result in
