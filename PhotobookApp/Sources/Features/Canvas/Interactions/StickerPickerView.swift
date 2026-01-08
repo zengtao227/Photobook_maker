@@ -3,6 +3,7 @@ import SwiftUI
 struct StickerPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(EditorState.self) private var editorState
+    @Environment(LocalizationManager.self) private var localization
     @State private var stickerManager = StickerManager()
     
     let isLeftPage: Bool
@@ -10,16 +11,38 @@ struct StickerPickerView: View {
     @State private var selectedCategory: StickerCategory = .favorites
     @State private var isImporting = false
     
-    enum StickerCategory: String, CaseIterable, Identifiable {
-        case favorites = "精选/收藏"
-        case custom = "自定义"
-        case family = "家庭活动"
-        case weather = "天气"
-        case holiday = "节日/生日"
-        case seasons = "四季"
-        case fruits = "水果/食物"
+    enum StickerCategory: CaseIterable, Identifiable {
+        case favorites
+        case custom
+        case family
+        case weather
+        case holiday
+        case seasons
+        case fruits
         
-        var id: String { rawValue }
+        var id: String { 
+            switch self {
+            case .favorites: return "favorites"
+            case .custom: return "custom"
+            case .family: return "family"
+            case .weather: return "weather"
+            case .holiday: return "holiday"
+            case .seasons: return "seasons"
+            case .fruits: return "fruits"
+            }
+        }
+        
+        func localizedName(_ localization: LocalizationManager) -> String {
+            switch self {
+            case .favorites: return localization.localized(.stickerFavorites)
+            case .custom: return localization.localized(.stickerCustom)
+            case .family: return localization.localized(.stickerFamily)
+            case .weather: return localization.localized(.stickerWeather)
+            case .holiday: return localization.localized(.stickerHoliday)
+            case .seasons: return localization.localized(.stickerSeasons)
+            case .fruits: return localization.localized(.stickerFruits)
+            }
+        }
         
         var icon: String {
             switch self {
@@ -37,13 +60,23 @@ struct StickerPickerView: View {
     // Data Source
     private var stickers: [StickerItem] {
         switch selectedCategory {
+        case .custom:
+            return stickerManager.customStickers.map { .url($0.url, $0.name) }
         case .favorites:
-            return [
-                .emoji("❤️"), .emoji("👍"), .system("star.fill", .yellow), .system("heart.fill", .red),
-                .emoji("✨"), .emoji("💡"), .system("checkmark.seal.fill", .blue),
-                .emoji("🎉"), .emoji("🌟"), .emoji("💖"), .emoji("🔥"), .emoji("💯"),
-                .system("sparkles", .yellow), .system("flame.fill", .orange), .system("bolt.fill", .yellow)
-            ]
+            // Show user's favorite stickers
+            return stickerManager.favoriteStickers.compactMap { favorite in
+                switch favorite.type {
+                case .emoji(let char):
+                    return .emoji(char)
+                case .system(let name, let colorHex):
+                    return .system(name, Color(hex: colorHex))
+                case .url(let urlString):
+                    if let url = URL(string: urlString) {
+                        return .url(url, url.lastPathComponent)
+                    }
+                    return nil
+                }
+            }
         case .family:
             return [
                 .system("house.fill", .blue), .system("car.fill", .gray), .system("figure.walk", .black),
@@ -100,10 +133,15 @@ struct StickerPickerView: View {
     struct StickerItem: Identifiable {
         let id = UUID()
         enum Kind {
+            case url(URL, String)
             case system(String, Color)
             case emoji(String)
         }
         let kind: Kind
+        
+        static func url(_ url: URL, _ name: String) -> StickerItem {
+            .init(kind: .url(url, name))
+        }
         
         static func system(_ name: String, _ color: Color = .black) -> StickerItem {
             .init(kind: .system(name, color))
@@ -118,17 +156,32 @@ struct StickerPickerView: View {
         NavigationSplitView {
             List(StickerCategory.allCases, selection: $selectedCategory) { category in
                 NavigationLink(value: category) {
-                    Label(category.rawValue, systemImage: category.icon)
+                    Label(category.localizedName(localization), systemImage: category.icon)
                 }
             }
-            .navigationTitle("贴纸库")
+            .navigationTitle(localization.localized(.stickerLibrary))
             
             VStack {
                 Spacer()
+                
+                // Open Stickers Folder button (only show in custom category)
+                if selectedCategory == .custom {
+                    Button {
+                        stickerManager.openStickersFolder()
+                    } label: {
+                        Label(localization.localized(.openStickersFolder), systemImage: "folder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                }
+                
                 Button {
                     isImporting = true
                 } label: {
-                    Label("导入自定义贴纸...", systemImage: "plus.circle")
+                    Label(localization.localized(.importCustomSticker), systemImage: "plus.circle")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -139,37 +192,88 @@ struct StickerPickerView: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 20) {
                     ForEach(stickers) { sticker in
-                        Button {
-                            addSticker(sticker)
-                            dismiss()
-                        } label: {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.1))
-                                    .frame(height: 80)
-                                
-                                switch sticker.kind {
-                                case .system(let name, let color):
-                                    Image(systemName: name)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 40, height: 40)
-                                        .foregroundColor(color)
-                                case .emoji(let char):
-                                    Text(char)
-                                        .font(.system(size: 40))
+                        ZStack(alignment: .topTrailing) {
+                            // Main sticker button
+                            Button {
+                                addSticker(sticker)
+                                dismiss()
+                            } label: {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.gray.opacity(0.1))
+                                        .frame(height: 80)
+                                    
+                                    switch sticker.kind {
+                                    case .url(let url, _):
+                                        AsyncImage(url: url) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fit)
+                                                    .frame(width: 60, height: 60)
+                                            case .failure(_):
+                                                Image(systemName: "photo")
+                                                    .foregroundColor(.gray)
+                                            case .empty:
+                                                ProgressView()
+                                            @unknown default:
+                                                EmptyView()
+                                            }
+                                        }
+                                    case .system(let name, let color):
+                                        Image(systemName: name)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fit)
+                                            .frame(width: 40, height: 40)
+                                            .foregroundColor(color)
+                                    case .emoji(let char):
+                                        Text(char)
+                                            .font(.system(size: 40))
+                                    }
                                 }
                             }
+                            .buttonStyle(.plain)
+                            
+                            // Favorite button (only show when not in favorites or custom category)
+                            if selectedCategory != .favorites && selectedCategory != .custom {
+                                Button {
+                                    toggleFavorite(sticker)
+                                } label: {
+                                    Image(systemName: isFavorite(sticker) ? "star.fill" : "star")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(isFavorite(sticker) ? .yellow : .gray)
+                                        .padding(4)
+                                        .background(Color.white.opacity(0.9))
+                                        .clipShape(Circle())
+                                        .shadow(radius: 2)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(4)
+                            }
+                            
+                            // Remove from favorites button (only in favorites category)
+                            if selectedCategory == .favorites {
+                                Button {
+                                    removeFromFavorites(sticker)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.red)
+                                        .padding(4)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(4)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding()
             }
-            .navigationTitle(selectedCategory.rawValue)
+            .navigationTitle(selectedCategory.localizedName(localization))
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
+                    Button(localization.localized(.done)) {
                         dismiss()
                     }
                 }
@@ -188,14 +292,68 @@ struct StickerPickerView: View {
                 print("Import sticker failed: \(error.localizedDescription)")
             }
         }
+        .onAppear {
+            // Reload custom stickers when view appears
+            stickerManager.loadCustomStickers()
+        }
     }
 
     func addSticker(_ item: StickerItem) {
         switch item.kind {
+        case .url(let url, _):
+            editorState.addStickerLayer(url: url, isLeftPage: isLeftPage)
         case .system(let name, let color):
             editorState.addSystemSticker(name: name, colorHex: color.toHex(), isLeftPage: isLeftPage)
         case .emoji(let char):
             editorState.addEmojiSticker(emoji: char, isLeftPage: isLeftPage)
+        }
+    }
+    
+    // MARK: - Favorites Management
+    
+    private func toggleFavorite(_ item: StickerItem) {
+        let stickerId = getStickerID(item)
+        
+        if stickerManager.isFavorite(stickerId) {
+            stickerManager.removeFromFavorites(stickerId)
+        } else {
+            let favorite = FavoriteSticker(
+                id: stickerId,
+                type: getFavoriteType(item)
+            )
+            stickerManager.addToFavorites(favorite)
+        }
+    }
+    
+    private func removeFromFavorites(_ item: StickerItem) {
+        let stickerId = getStickerID(item)
+        stickerManager.removeFromFavorites(stickerId)
+    }
+    
+    private func isFavorite(_ item: StickerItem) -> Bool {
+        let stickerId = getStickerID(item)
+        return stickerManager.isFavorite(stickerId)
+    }
+    
+    private func getStickerID(_ item: StickerItem) -> String {
+        switch item.kind {
+        case .emoji(let char):
+            return "emoji_\(char)"
+        case .system(let name, let color):
+            return "system_\(name)_\(color.toHex())"
+        case .url(let url, _):
+            return "url_\(url.absoluteString)"
+        }
+    }
+    
+    private func getFavoriteType(_ item: StickerItem) -> FavoriteSticker.StickerType {
+        switch item.kind {
+        case .emoji(let char):
+            return .emoji(char)
+        case .system(let name, let color):
+            return .system(name, color.toHex())
+        case .url(let url, _):
+            return .url(url.absoluteString)
         }
     }
 }
@@ -205,21 +363,43 @@ struct StickerPickerView: View {
 
 struct StickerPickerPopover: View {
     @Environment(EditorState.self) private var editorState
+    @Environment(LocalizationManager.self) private var localization
+    @State private var stickerManager = StickerManager()
     
     let isLeftPage: Bool
     
     @State private var selectedCategory: StickerCategory = .favorites
     @State private var isImporting = false
     
-    enum StickerCategory: String, CaseIterable, Identifiable {
-        case favorites = "精选"
-        case family = "家庭"
-        case weather = "天气"
-        case holiday = "节日"
-        case seasons = "四季"
-        case fruits = "食物"
+    enum StickerCategory: CaseIterable, Identifiable {
+        case favorites
+        case family
+        case weather
+        case holiday
+        case seasons
+        case fruits
         
-        var id: String { rawValue }
+        var id: String {
+            switch self {
+            case .favorites: return "favorites"
+            case .family: return "family"
+            case .weather: return "weather"
+            case .holiday: return "holiday"
+            case .seasons: return "seasons"
+            case .fruits: return "fruits"
+            }
+        }
+        
+        func localizedName(_ localization: LocalizationManager) -> String {
+            switch self {
+            case .favorites: return localization.localized(.stickerFavorites)
+            case .family: return localization.localized(.stickerFamily)
+            case .weather: return localization.localized(.stickerWeather)
+            case .holiday: return localization.localized(.stickerHoliday)
+            case .seasons: return localization.localized(.stickerSeasons)
+            case .fruits: return localization.localized(.stickerFruits)
+            }
+        }
         
         var icon: String {
             switch self {
@@ -237,12 +417,20 @@ struct StickerPickerPopover: View {
     private var stickers: [StickerItem] {
         switch selectedCategory {
         case .favorites:
-            return [
-                .emoji("❤️"), .emoji("👍"), .system("star.fill", .yellow), .system("heart.fill", .red),
-                .emoji("✨"), .emoji("💡"), .system("checkmark.seal.fill", .blue),
-                .emoji("🎉"), .emoji("🌟"), .emoji("💖"), .emoji("🔥"), .emoji("💯"),
-                .system("sparkles", .yellow), .system("flame.fill", .orange), .system("bolt.fill", .yellow)
-            ]
+            // Show user's favorite stickers
+            return stickerManager.favoriteStickers.compactMap { favorite in
+                switch favorite.type {
+                case .emoji(let char):
+                    return .emoji(char)
+                case .system(let name, let colorHex):
+                    return .system(name, Color(hex: colorHex))
+                case .url(let urlString):
+                    if let url = URL(string: urlString) {
+                        return .url(url, url.lastPathComponent)
+                    }
+                    return nil
+                }
+            }
         case .family:
             return [
                 .system("house.fill", .blue), .system("car.fill", .gray), .system("figure.walk", .black),
@@ -299,10 +487,15 @@ struct StickerPickerPopover: View {
     struct StickerItem: Identifiable {
         let id = UUID()
         enum Kind {
+            case url(URL, String)
             case system(String, Color)
             case emoji(String)
         }
         let kind: Kind
+        
+        static func url(_ url: URL, _ name: String) -> StickerItem {
+            .init(kind: .url(url, name))
+        }
         
         static func system(_ name: String, _ color: Color = .black) -> StickerItem {
             .init(kind: .system(name, color))
@@ -317,19 +510,21 @@ struct StickerPickerPopover: View {
         VStack(spacing: 0) {
             // Category tabs
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     ForEach(StickerCategory.allCases) { category in
                         Button {
                             selectedCategory = category
                         } label: {
-                            VStack(spacing: 2) {
+                            VStack(spacing: 3) {
                                 Image(systemName: category.icon)
-                                    .font(.system(size: 16))
-                                Text(category.rawValue)
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 18))
+                                Text(category.localizedName(localization))
+                                    .font(.system(size: 10))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
                             .background(selectedCategory == category ? Color.blue.opacity(0.2) : Color.clear)
                             .cornerRadius(6)
                         }
@@ -348,28 +543,80 @@ struct StickerPickerPopover: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 50))], spacing: 8) {
                     ForEach(stickers) { sticker in
-                        Button {
-                            addSticker(sticker)
-                        } label: {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.gray.opacity(0.1))
-                                    .frame(width: 50, height: 50)
-                                
-                                switch sticker.kind {
-                                case .system(let name, let color):
-                                    Image(systemName: name)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 28, height: 28)
-                                        .foregroundColor(color)
-                                case .emoji(let char):
-                                    Text(char)
-                                        .font(.system(size: 28))
+                        ZStack(alignment: .topTrailing) {
+                            // Main sticker button
+                            Button {
+                                addSticker(sticker)
+                            } label: {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.gray.opacity(0.1))
+                                        .frame(width: 50, height: 50)
+                                    
+                                    switch sticker.kind {
+                                    case .url(let url, _):
+                                        AsyncImage(url: url) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fit)
+                                                    .frame(width: 40, height: 40)
+                                            case .failure(_):
+                                                Image(systemName: "photo")
+                                                    .foregroundColor(.gray)
+                                            case .empty:
+                                                ProgressView()
+                                                    .scaleEffect(0.5)
+                                            @unknown default:
+                                                EmptyView()
+                                            }
+                                        }
+                                    case .system(let name, let color):
+                                        Image(systemName: name)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fit)
+                                            .frame(width: 28, height: 28)
+                                            .foregroundColor(color)
+                                    case .emoji(let char):
+                                        Text(char)
+                                            .font(.system(size: 28))
+                                    }
                                 }
                             }
+                            .buttonStyle(.plain)
+                            
+                            // Favorite button (only show when not in favorites category)
+                            if selectedCategory != .favorites {
+                                Button {
+                                    toggleFavorite(sticker)
+                                } label: {
+                                    Image(systemName: isFavorite(sticker) ? "star.fill" : "star")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(isFavorite(sticker) ? .yellow : .gray)
+                                        .padding(2)
+                                        .background(Color.white.opacity(0.9))
+                                        .clipShape(Circle())
+                                        .shadow(radius: 1)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(2)
+                            }
+                            
+                            // Remove from favorites button (only in favorites category)
+                            if selectedCategory == .favorites {
+                                Button {
+                                    removeFromFavorites(sticker)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.red)
+                                        .padding(2)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(2)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(8)
@@ -381,7 +628,7 @@ struct StickerPickerPopover: View {
             Button {
                 isImporting = true
             } label: {
-                Label("导入自定义...", systemImage: "plus.circle")
+                Label(localization.localized(.importCustomSticker), systemImage: "plus.circle")
                     .font(.caption)
                     .frame(maxWidth: .infinity)
             }
@@ -398,14 +645,68 @@ struct StickerPickerPopover: View {
                 print("Import sticker failed: \(error.localizedDescription)")
             }
         }
+        .onAppear {
+            // Reload favorites when view appears
+            stickerManager.loadFavorites()
+        }
     }
 
     func addSticker(_ item: StickerItem) {
         switch item.kind {
+        case .url(let url, _):
+            editorState.addStickerLayer(url: url, isLeftPage: isLeftPage)
         case .system(let name, let color):
             editorState.addSystemSticker(name: name, colorHex: color.toHex(), isLeftPage: isLeftPage)
         case .emoji(let char):
             editorState.addEmojiSticker(emoji: char, isLeftPage: isLeftPage)
+        }
+    }
+    
+    // MARK: - Favorites Management
+    
+    private func toggleFavorite(_ item: StickerItem) {
+        let stickerId = getStickerID(item)
+        
+        if stickerManager.isFavorite(stickerId) {
+            stickerManager.removeFromFavorites(stickerId)
+        } else {
+            let favorite = FavoriteSticker(
+                id: stickerId,
+                type: getFavoriteType(item)
+            )
+            stickerManager.addToFavorites(favorite)
+        }
+    }
+    
+    private func removeFromFavorites(_ item: StickerItem) {
+        let stickerId = getStickerID(item)
+        stickerManager.removeFromFavorites(stickerId)
+    }
+    
+    private func isFavorite(_ item: StickerItem) -> Bool {
+        let stickerId = getStickerID(item)
+        return stickerManager.isFavorite(stickerId)
+    }
+    
+    private func getStickerID(_ item: StickerItem) -> String {
+        switch item.kind {
+        case .emoji(let char):
+            return "emoji_\(char)"
+        case .system(let name, let color):
+            return "system_\(name)_\(color.toHex())"
+        case .url(let url, _):
+            return "url_\(url.absoluteString)"
+        }
+    }
+    
+    private func getFavoriteType(_ item: StickerItem) -> FavoriteSticker.StickerType {
+        switch item.kind {
+        case .emoji(let char):
+            return .emoji(char)
+        case .system(let name, let color):
+            return .system(name, color.toHex())
+        case .url(let url, _):
+            return .url(url.absoluteString)
         }
     }
 }

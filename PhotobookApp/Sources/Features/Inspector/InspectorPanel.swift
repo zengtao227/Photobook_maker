@@ -91,7 +91,7 @@ struct InspectorPanel: View {
                     .foregroundColor(themeManager.theme.accentColor)
                     .popover(isPresented: $showStickerPicker, arrowEdge: .leading) {
                         StickerPickerPopover(isLeftPage: stickerTargetIsLeft)
-                            .frame(width: 300, height: 400)
+                            .frame(width: 400, height: 500)
                     }
                 }
                 

@@ -79,26 +79,20 @@ struct MainLayoutView: View {
                     
                     // Language Toggle Button
                     Menu {
-                        Button(action: { localization.setLanguage(.chinese) }) {
-                            HStack {
-                                Text("🇨🇳 中文 / Chinese")
-                                if localization.currentLanguage == .chinese {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                        Button(action: { localization.setLanguage(.english) }) {
-                            HStack {
-                                Text("🇬🇧 English / 英文")
-                                if localization.currentLanguage == .english {
-                                    Image(systemName: "checkmark")
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Button(action: { localization.setLanguage(language) }) {
+                                HStack {
+                                    Text(language.displayNameWithFlag)
+                                    if localization.currentLanguage == language {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
                         }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "globe")
-                            Text(localization.currentLanguage == .chinese ? "中/EN" : "EN/中")
+                            Text(localization.currentLanguage.shortName)
                                 .font(.caption)
                         }
                         .padding(8)

@@ -26,6 +26,19 @@ public enum AppLanguage: String, CaseIterable {
         case .french: return "🇫🇷"
         }
     }
+    
+    public var displayNameWithFlag: String {
+        return "\(flag) \(displayName)"
+    }
+    
+    public var shortName: String {
+        switch self {
+        case .chinese: return "中"
+        case .english: return "EN"
+        case .german: return "DE"
+        case .french: return "FR"
+        }
+    }
 }
 
 // MARK: - Localization Manager
@@ -223,6 +236,19 @@ public enum LocalizedKey {
     case textAlignRight
     case doubleClickToEdit
     
+    // Sticker Picker
+    case stickerLibrary
+    case stickerFavorites
+    case stickerCustom
+    case stickerFamily
+    case stickerWeather
+    case stickerHoliday
+    case stickerSeasons
+    case stickerFruits
+    case openStickersFolder
+    case importCustomSticker
+    case done
+    
     public var chinese: String {
         switch self {
         case .appName: return "照片书"
@@ -345,6 +371,19 @@ public enum LocalizedKey {
         case .textAlignCenter: return "居中"
         case .textAlignRight: return "右对齐"
         case .doubleClickToEdit: return "双击编辑文字"
+        
+        // Sticker Picker
+        case .stickerLibrary: return "贴纸库"
+        case .stickerFavorites: return "精选/收藏"
+        case .stickerCustom: return "自定义"
+        case .stickerFamily: return "家庭活动"
+        case .stickerWeather: return "天气"
+        case .stickerHoliday: return "节日/生日"
+        case .stickerSeasons: return "四季"
+        case .stickerFruits: return "水果/食物"
+        case .openStickersFolder: return "打开贴纸文件夹"
+        case .importCustomSticker: return "导入自定义贴纸..."
+        case .done: return "完成"
         }
     }
     
@@ -470,6 +509,19 @@ public enum LocalizedKey {
         case .textAlignCenter: return "Center"
         case .textAlignRight: return "Right"
         case .doubleClickToEdit: return "Double-click to edit text"
+        
+        // Sticker Picker
+        case .stickerLibrary: return "Sticker Library"
+        case .stickerFavorites: return "Favorites"
+        case .stickerCustom: return "Custom"
+        case .stickerFamily: return "Family"
+        case .stickerWeather: return "Weather"
+        case .stickerHoliday: return "Holiday"
+        case .stickerSeasons: return "Seasons"
+        case .stickerFruits: return "Food"
+        case .openStickersFolder: return "Open Stickers Folder"
+        case .importCustomSticker: return "Import Custom Sticker..."
+        case .done: return "Done"
         }
     }
     
@@ -595,6 +647,19 @@ public enum LocalizedKey {
         case .textAlignCenter: return "Zentriert"
         case .textAlignRight: return "Rechts"
         case .doubleClickToEdit: return "Doppelklick zum Bearbeiten"
+        
+        // Sticker Picker
+        case .stickerLibrary: return "Sticker-Bibliothek"
+        case .stickerFavorites: return "Favoriten"
+        case .stickerCustom: return "Benutzerdefiniert"
+        case .stickerFamily: return "Familie"
+        case .stickerWeather: return "Wetter"
+        case .stickerHoliday: return "Feiertage"
+        case .stickerSeasons: return "Jahreszeiten"
+        case .stickerFruits: return "Essen"
+        case .openStickersFolder: return "Sticker-Ordner öffnen"
+        case .importCustomSticker: return "Benutzerdefinierten Sticker importieren..."
+        case .done: return "Fertig"
         }
     }
     
@@ -720,6 +785,19 @@ public enum LocalizedKey {
         case .textAlignCenter: return "Centré"
         case .textAlignRight: return "Droite"
         case .doubleClickToEdit: return "Double-cliquez pour modifier"
+        
+        // Sticker Picker
+        case .stickerLibrary: return "Bibliothèque d'autocollants"
+        case .stickerFavorites: return "Favoris"
+        case .stickerCustom: return "Personnalisé"
+        case .stickerFamily: return "Famille"
+        case .stickerWeather: return "Météo"
+        case .stickerHoliday: return "Fêtes"
+        case .stickerSeasons: return "Saisons"
+        case .stickerFruits: return "Nourriture"
+        case .openStickersFolder: return "Ouvrir le dossier d'autocollants"
+        case .importCustomSticker: return "Importer un autocollant personnalisé..."
+        case .done: return "Terminé"
         }
     }
 }

@@ -6,6 +6,7 @@ import Observation
 @Observable
 public class StickerManager {
     public var customStickers: [CustomSticker] = []
+    public var favoriteStickers: [FavoriteSticker] = []
     
     private let fileManager = FileManager.default
     private var customStickersDirectory: URL? {
@@ -17,6 +18,41 @@ public class StickerManager {
     public init() {
         createStickersDirectoryIfNeeded()
         loadCustomStickers()
+        loadFavorites()
+    }
+    
+    // MARK: - Favorites Management
+    
+    public func addToFavorites(_ sticker: FavoriteSticker) {
+        // Check if already exists
+        if !favoriteStickers.contains(where: { $0.id == sticker.id }) {
+            favoriteStickers.append(sticker)
+            saveFavorites()
+        }
+    }
+    
+    public func removeFromFavorites(_ stickerId: String) {
+        favoriteStickers.removeAll { $0.id == stickerId }
+        saveFavorites()
+    }
+    
+    public func isFavorite(_ stickerId: String) -> Bool {
+        favoriteStickers.contains { $0.id == stickerId }
+    }
+    
+    private func saveFavorites() {
+        if let encoded = try? JSONEncoder().encode(favoriteStickers) {
+            UserDefaults.standard.set(encoded, forKey: "favorite_stickers")
+            print("✅ Saved \(favoriteStickers.count) favorite stickers")
+        }
+    }
+    
+    public func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: "favorite_stickers"),
+           let decoded = try? JSONDecoder().decode([FavoriteSticker].self, from: data) {
+            favoriteStickers = decoded
+            print("✅ Loaded \(favoriteStickers.count) favorite stickers")
+        }
     }
     
     /// 创建自定义贴纸文件夹（如果不存在）
@@ -114,7 +150,7 @@ public class StickerManager {
         
         // 创建StickerLayer
         let layer = StickerLayer(
-            content: .url(sticker.url),
+            url: sticker.url,
             frame: CGRect(
                 x: logicalCenter.x - 50,
                 y: logicalCenter.y - 50,
@@ -125,9 +161,9 @@ public class StickerManager {
         
         // 添加到页面
         if isLeftPage {
-            editorState.leftPage.layers.append(AnyLayer(layer: layer))
+            editorState.leftPage.layers.append(AnyLayer(layer))
         } else {
-            editorState.rightPage.layers.append(AnyLayer(layer: layer))
+            editorState.rightPage.layers.append(AnyLayer(layer))
         }
         
         editorState.lastModified = Date()
@@ -140,4 +176,16 @@ public struct CustomSticker: Identifiable {
     public let id: String
     public let name: String
     public let url: URL
+}
+
+/// 收藏的贴纸模型
+public struct FavoriteSticker: Identifiable, Codable {
+    public let id: String
+    public let type: StickerType
+    
+    public enum StickerType: Codable {
+        case emoji(String)
+        case system(String, String) // name, colorHex
+        case url(String) // URL path string
+    }
 }
