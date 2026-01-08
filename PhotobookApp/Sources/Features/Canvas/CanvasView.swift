@@ -48,6 +48,7 @@ struct CanvasView: View {
                             switch editorState.currentTarget {
                             case .frontCover:
                                 // 封面：只显示右侧（封面外侧）
+                                // leftPage存储封面内容，显示在右侧
                                 Color.clear
                                     .frame(width: singlePageSize.width)
                                 
@@ -61,12 +62,13 @@ struct CanvasView: View {
                                     .frame(width: 2)
                                     .zIndex(1)
                                 
-                                // 封面（右侧）
-                                BookPage(isLeft: false, size: singlePageSize)
+                                // 封面（右侧）- 使用leftPage的数据
+                                BookPage(isLeft: true, size: singlePageSize)
                                 
                             case .backCover:
                                 // 封底：只显示左侧（封底外侧）
-                                BookPage(isLeft: true, size: singlePageSize)
+                                // rightPage存储封底内容，显示在左侧
+                                BookPage(isLeft: false, size: singlePageSize)
                                 
                                 // Spine
                                 Rectangle()
@@ -734,30 +736,21 @@ struct InteractiveLayer: View {
                         newDisplayFrame.origin.x += adjustedX
                         newDisplayFrame.origin.y += adjustedY
                         
-                        // 边界检查：封面和封底只能在指定页面编辑
+                        // 边界检查：只对封面和封底进行限制
                         let pageModel = isLeftPage ? editorState.leftPage : editorState.rightPage
                         let displayPageSize = CGSize(width: logicalPageSize.width * scale, height: logicalPageSize.height * scale)
                         
+                        // 只对封面和封底进行边界限制
                         if pageModel.pageNumber == 0 {
-                            // 封面：只能在左页（外侧）编辑
-                            if !isLeftPage {
-                                return // 右页不可编辑，忽略拖动
-                            }
-                            // 限制在左页范围内，不能超出边界
+                            // 封面：限制在页面范围内
                             newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
                             newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
                         } else if pageModel.pageNumber == -1 {
-                            // 封底：只能在右页（外侧）编辑
-                            if isLeftPage {
-                                return // 左页不可编辑，忽略拖动
-                            }
-                            // 限制在右页范围内，不能超出边界
+                            // 封底：限制在页面范围内
                             newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
                             newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
-                        } else if pageModel.pageNumber > 0 {
-                            // 内页：允许自由移动，可以跨页（用于跨页背景等）
-                            // 不再限制在单页范围内
                         }
+                        // 内页（pageNumber > 0）：不做任何限制，允许自由移动
                         
                         transientFrame = newDisplayFrame
                     }
