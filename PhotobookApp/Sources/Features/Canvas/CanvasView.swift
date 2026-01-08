@@ -348,21 +348,21 @@ struct PhotoLayerElement: View {
                     // Double border style
                     ZStack {
                         RoundedRectangle(cornerRadius: layer.borderCornerRadius)
-                            .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
+                            .stroke(Color(hex: layer.borderColorHex), lineWidth: layer.borderWidth)
                         
                         // Inner line
                         RoundedRectangle(cornerRadius: max(0, layer.borderCornerRadius - 4))
-                            .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: max(1, layer.borderWidth / 3))
+                            .stroke(Color(hex: layer.borderColorHex), lineWidth: max(1, layer.borderWidth / 3))
                             .padding(4)
                     }
                 } else if layer.borderStyle == .stamp {
                     StampShape()
-                        .stroke(Color(hex: layer.borderColorHex) ?? .white, lineWidth: layer.borderWidth)
+                        .stroke(Color(hex: layer.borderColorHex), lineWidth: layer.borderWidth)
                 } else {
                     // Solid, Dashed, Dotted
                     RoundedRectangle(cornerRadius: layer.borderCornerRadius)
                         .stroke(
-                            Color(hex: layer.borderColorHex) ?? .white,
+                            Color(hex: layer.borderColorHex),
                             style: StrokeStyle(
                                 lineWidth: layer.borderWidth,
                                 dash: layer.borderStyle.dashPattern
@@ -1012,7 +1012,7 @@ struct StickerLayerElement: View {
                 Image(systemName: name)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .foregroundColor(Color(hex: layer.colorHex ?? "#000000") ?? .black)
+                    .foregroundColor(Color(hex: layer.colorHex ?? "#000000"))
                     
             case .emoji(let char):
                 Text(char)
