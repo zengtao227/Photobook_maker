@@ -3,6 +3,7 @@ import SwiftUI
 /// 项目浏览器 - App 启动首页
 struct ProjectBrowserView: View {
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(LocalizationManager.self) private var localization
     @State private var projects: [ProjectMetadata] = []
     @State private var showNewProjectDialog = false
     @State private var newProjectName = ""
@@ -22,21 +23,54 @@ struct ProjectBrowserView: View {
                 // Header
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("我的项目")
+                        Text(localization.localized(.myProjects))
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(themeManager.theme.textColor)
-                        Text("\(projects.count) 个项目")
+                        Text(localization.localized(.projectCount(projects.count)))
                             .font(.subheadline)
                             .foregroundColor(themeManager.theme.secondaryTextColor)
                     }
                     
                     Spacer()
                     
+                    // Language Selector
+                    Menu {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Button(action: {
+                                localization.setLanguage(language)
+                            }) {
+                                HStack {
+                                    Text(language.flag)
+                                    Text(language.displayName)
+                                    if localization.currentLanguage == language {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(localization.currentLanguage.flag)
+                                .font(.title3)
+                            Text(localization.currentLanguage.displayName)
+                                .font(.subheadline)
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(themeManager.theme.searchFieldColor)
+                        .cornerRadius(8)
+                        .foregroundColor(themeManager.theme.textColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help(localization.localized(.selectLanguage))
+                    
                     // Open Projects Folder Button
                     Button(action: openProjectsFolder) {
                         HStack(spacing: 4) {
                             Image(systemName: "folder")
-                            Text("项目文件夹")
+                            Text(localization.localized(.projectFolder))
                         }
                         .font(.subheadline)
                         .padding(.horizontal, 12)
@@ -46,7 +80,7 @@ struct ProjectBrowserView: View {
                         .foregroundColor(themeManager.theme.textColor)
                     }
                     .buttonStyle(.plain)
-                    .help("打开项目文件夹，可以备份或转移项目文件")
+                    .help(localization.localized(.projectFolderHelp))
                     
                     // Theme Toggle
                     Button(action: {
@@ -74,6 +108,7 @@ struct ProjectBrowserView: View {
                         NewProjectCard {
                             showNewProjectDialog = true
                         }
+                        .environment(localization)
                         
                         // Existing Projects
                         ForEach(projects) { project in
@@ -90,6 +125,7 @@ struct ProjectBrowserView: View {
                                     renameText = project.name
                                 }
                             )
+                            .environment(localization)
                         }
                     }
                     .padding(40)
@@ -108,7 +144,7 @@ struct ProjectBrowserView: View {
                 .ignoresSafeArea()
                 .onTapGesture { showNewProjectDialog = false }
                 .overlay(
-                    NewProjectDialog(
+                NewProjectDialog(
                         projectName: $newProjectName,
                         onCreate: {
                             createNewProject()
@@ -117,6 +153,7 @@ struct ProjectBrowserView: View {
                             showNewProjectDialog = false
                         }
                     )
+                    .environment(localization)
                 )
                 .zIndex(100)
         }
@@ -136,6 +173,7 @@ struct ProjectBrowserView: View {
                             renamingProject = nil
                         }
                     )
+                    .environment(localization)
                 )
                 .zIndex(100)
         }
@@ -147,7 +185,7 @@ struct ProjectBrowserView: View {
     }
     
     private func createNewProject() {
-        let name = newProjectName.isEmpty ? "新项目" : newProjectName
+        let name = newProjectName.isEmpty ? localization.localized(.defaultProjectName) : newProjectName
         let meta = PersistenceManager.shared.createNewProject(name: name)
         projects.insert(meta, at: 0)
         newProjectName = ""
@@ -186,6 +224,7 @@ struct ProjectBrowserView: View {
 
 struct ProjectCard: View {
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(LocalizationManager.self) private var localization
     let project: ProjectMetadata
     let onOpen: () -> Void
     let onDelete: () -> Void
@@ -233,21 +272,21 @@ struct ProjectCard: View {
             onOpen()
         }
         .contextMenu {
-            Button("打开", systemImage: "arrow.right.square") {
+            Button(localization.localized(.open), systemImage: "arrow.right.square") {
                 onOpen()
             }
             
-            Button("重命名", systemImage: "pencil") {
+            Button(localization.localized(.rename), systemImage: "pencil") {
                 onRename()
             }
             
-            Button("在Finder中显示", systemImage: "folder") {
+            Button(localization.localized(.showInFinder), systemImage: "folder") {
                 showInFinder()
             }
             
             Divider()
             
-            Button("删除", systemImage: "trash", role: .destructive) {
+            Button(localization.localized(.delete), systemImage: "trash", role: .destructive) {
                 onDelete()
             }
         }
@@ -274,6 +313,7 @@ struct ProjectCard: View {
 
 struct NewProjectCard: View {
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(LocalizationManager.self) private var localization
     let onCreate: () -> Void
     
     @State private var isHovering = false
@@ -284,7 +324,7 @@ struct NewProjectCard: View {
                 .font(.system(size: 48))
                 .foregroundColor(themeManager.theme.secondaryTextColor)
             
-            Text("新建项目")
+            Text(localization.localized(.newProject))
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
         }
@@ -310,20 +350,19 @@ struct NewProjectCard: View {
 // MARK: - New Project Dialog
 
 struct NewProjectDialog: View {
+    @Environment(LocalizationManager.self) private var localization
     @Binding var projectName: String
     let onCreate: () -> Void
     let onCancel: () -> Void
     
-    // Using MacTextField to solve focus issues
-    
     var body: some View {
         VStack(spacing: 20) {
-            Text("新建项目")
+            Text(localization.localized(.newProject))
                 .font(.title2.bold())
                 .foregroundColor(.black)
             
             MacTextField(
-                placeholder: "项目名称",
+                placeholder: localization.localized(.projectName),
                 text: $projectName,
                 onCommit: {
                     onCreate()
@@ -335,12 +374,12 @@ struct NewProjectDialog: View {
             .frame(width: 300, height: 24)
             
             HStack(spacing: 12) {
-                Button("取消") {
+                Button(localization.localized(.cancel)) {
                     onCancel()
                 }
                 .keyboardShortcut(.escape)
                 
-                Button("创建") {
+                Button(localization.localized(.create)) {
                     onCreate()
                 }
                 .keyboardShortcut(.return)
@@ -360,18 +399,19 @@ struct NewProjectDialog: View {
 // MARK: - Rename Project Dialog
 
 struct RenameProjectDialog: View {
+    @Environment(LocalizationManager.self) private var localization
     @Binding var projectName: String
     let onRename: () -> Void
     let onCancel: () -> Void
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("重命名项目")
+            Text(localization.localized(.rename))
                 .font(.title2.bold())
                 .foregroundColor(.black)
             
             MacTextField(
-                placeholder: "项目名称",
+                placeholder: localization.localized(.projectName),
                 text: $projectName,
                 onCommit: {
                     onRename()
@@ -383,12 +423,12 @@ struct RenameProjectDialog: View {
             .frame(width: 300, height: 24)
             
             HStack(spacing: 12) {
-                Button("取消") {
+                Button(localization.localized(.cancel)) {
                     onCancel()
                 }
                 .keyboardShortcut(.escape)
                 
-                Button("保存") {
+                Button(localization.localized(.save)) {
                     onRename()
                 }
                 .keyboardShortcut(.return)

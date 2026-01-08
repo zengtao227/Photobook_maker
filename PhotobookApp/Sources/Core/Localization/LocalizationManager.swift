@@ -95,6 +95,18 @@ public enum LocalizedKey {
     // Navigation
     case project
     case backToProjects
+    case myProjects
+    case projectCount(Int)
+    case newProject
+    case projectFolder
+    case projectFolderHelp
+    case selectLanguage
+    case open
+    case rename
+    case showInFinder
+    case create
+    case projectName
+    case defaultProjectName
     
     // Tools
     case tools
@@ -169,7 +181,6 @@ public enum LocalizedKey {
     case exporting
     case exportComplete
     case exportFailed
-    case showInFinder
     case estimatedSize
     case customDPI
     case impositionPreview
@@ -224,6 +235,18 @@ public enum LocalizedKey {
         case .edit: return "编辑"
         case .project: return "项目"
         case .backToProjects: return "返回项目列表"
+        case .myProjects: return "我的项目"
+        case .projectCount(let count): return "\(count) 个项目"
+        case .newProject: return "新建项目"
+        case .projectFolder: return "项目文件夹"
+        case .projectFolderHelp: return "打开项目文件夹，可以备份或转移项目文件"
+        case .selectLanguage: return "选择语言"
+        case .open: return "打开"
+        case .rename: return "重命名"
+        case .showInFinder: return "在Finder中显示"
+        case .create: return "创建"
+        case .projectName: return "项目名称"
+        case .defaultProjectName: return "新项目"
         case .tools: return "工具"
         case .leftPageText: return "左页文字"
         case .rightPageText: return "右页文字"
@@ -286,7 +309,6 @@ public enum LocalizedKey {
         case .exporting: return "导出中..."
         case .exportComplete: return "导出完成"
         case .exportFailed: return "导出失败"
-        case .showInFinder: return "在Finder中显示"
         case .estimatedSize: return "预估文件大小"
         case .customDPI: return "自定义:"
         case .impositionPreview: return "拼版预览"
@@ -338,6 +360,18 @@ public enum LocalizedKey {
         case .edit: return "Edit"
         case .project: return "Project"
         case .backToProjects: return "Back to Projects"
+        case .myProjects: return "My Projects"
+        case .projectCount(let count): return "\(count) projects"
+        case .newProject: return "New Project"
+        case .projectFolder: return "Project Folder"
+        case .projectFolderHelp: return "Open project folder to backup or transfer project files"
+        case .selectLanguage: return "Select Language"
+        case .open: return "Open"
+        case .rename: return "Rename"
+        case .showInFinder: return "Show in Finder"
+        case .create: return "Create"
+        case .projectName: return "Project Name"
+        case .defaultProjectName: return "New Project"
         case .tools: return "Tools"
         case .leftPageText: return "Left Text"
         case .rightPageText: return "Right Text"
@@ -400,7 +434,6 @@ public enum LocalizedKey {
         case .exporting: return "Exporting..."
         case .exportComplete: return "Export Complete"
         case .exportFailed: return "Export Failed"
-        case .showInFinder: return "Show in Finder"
         case .estimatedSize: return "Estimated Size"
         case .customDPI: return "Custom:"
         case .impositionPreview: return "Imposition Preview"
@@ -452,6 +485,18 @@ public enum LocalizedKey {
         case .edit: return "Bearbeiten"
         case .project: return "Projekt"
         case .backToProjects: return "Zurück zu Projekten"
+        case .myProjects: return "Meine Projekte"
+        case .projectCount(let count): return "\(count) Projekte"
+        case .newProject: return "Neues Projekt"
+        case .projectFolder: return "Projektordner"
+        case .projectFolderHelp: return "Projektordner öffnen, um Projektdateien zu sichern oder zu übertragen"
+        case .selectLanguage: return "Sprache wählen"
+        case .open: return "Öffnen"
+        case .rename: return "Umbenennen"
+        case .showInFinder: return "Im Finder anzeigen"
+        case .create: return "Erstellen"
+        case .projectName: return "Projektname"
+        case .defaultProjectName: return "Neues Projekt"
         case .tools: return "Werkzeuge"
         case .leftPageText: return "Linker Text"
         case .rightPageText: return "Rechter Text"
@@ -514,7 +559,6 @@ public enum LocalizedKey {
         case .exporting: return "Exportiere..."
         case .exportComplete: return "Export abgeschlossen"
         case .exportFailed: return "Export fehlgeschlagen"
-        case .showInFinder: return "Im Finder anzeigen"
         case .estimatedSize: return "Geschätzte Größe"
         case .customDPI: return "Benutzerdefiniert:"
         case .impositionPreview: return "Ausschießvorschau"
@@ -566,6 +610,18 @@ public enum LocalizedKey {
         case .edit: return "Modifier"
         case .project: return "Projet"
         case .backToProjects: return "Retour aux projets"
+        case .myProjects: return "Mes Projets"
+        case .projectCount(let count): return "\(count) projets"
+        case .newProject: return "Nouveau Projet"
+        case .projectFolder: return "Dossier de projet"
+        case .projectFolderHelp: return "Ouvrir le dossier de projet pour sauvegarder ou transférer les fichiers"
+        case .selectLanguage: return "Choisir la langue"
+        case .open: return "Ouvrir"
+        case .rename: return "Renommer"
+        case .showInFinder: return "Afficher dans Finder"
+        case .create: return "Créer"
+        case .projectName: return "Nom du projet"
+        case .defaultProjectName: return "Nouveau Projet"
         case .tools: return "Outils"
         case .leftPageText: return "Texte gauche"
         case .rightPageText: return "Texte droit"
@@ -628,7 +684,6 @@ public enum LocalizedKey {
         case .exporting: return "Export en cours..."
         case .exportComplete: return "Export terminé"
         case .exportFailed: return "Échec de l'export"
-        case .showInFinder: return "Afficher dans Finder"
         case .estimatedSize: return "Taille estimée"
         case .customDPI: return "Personnalisé:"
         case .impositionPreview: return "Aperçu d'imposition"
