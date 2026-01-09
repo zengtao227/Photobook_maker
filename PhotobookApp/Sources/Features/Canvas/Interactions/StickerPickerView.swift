@@ -373,6 +373,7 @@ struct StickerPickerPopover: View {
     
     enum StickerCategory: CaseIterable, Identifiable {
         case favorites
+        case custom  // 内置贴纸资源
         case family
         case weather
         case holiday
@@ -382,6 +383,7 @@ struct StickerPickerPopover: View {
         var id: String {
             switch self {
             case .favorites: return "favorites"
+            case .custom: return "custom"
             case .family: return "family"
             case .weather: return "weather"
             case .holiday: return "holiday"
@@ -393,6 +395,7 @@ struct StickerPickerPopover: View {
         func localizedName(_ localization: LocalizationManager) -> String {
             switch self {
             case .favorites: return localization.localized(.stickerFavorites)
+            case .custom: return localization.localized(.stickerCustom)
             case .family: return localization.localized(.stickerFamily)
             case .weather: return localization.localized(.stickerWeather)
             case .holiday: return localization.localized(.stickerHoliday)
@@ -404,6 +407,7 @@ struct StickerPickerPopover: View {
         var icon: String {
             switch self {
             case .favorites: return "star.fill"
+            case .custom: return "folder.fill"
             case .family: return "figure.2.and.child.holdinghands"
             case .weather: return "cloud.sun.fill"
             case .holiday: return "gift.fill"
@@ -431,6 +435,9 @@ struct StickerPickerPopover: View {
                     return nil
                 }
             }
+        case .custom:
+            // Show bundled/custom stickers from user directory
+            return stickerManager.customStickers.map { .url($0.url, $0.name) }
         case .family:
             return [
                 .system("house.fill", .blue), .system("car.fill", .gray), .system("figure.walk", .black),
@@ -646,8 +653,9 @@ struct StickerPickerPopover: View {
             }
         }
         .onAppear {
-            // Reload favorites when view appears
+            // Reload favorites and custom stickers when view appears
             stickerManager.loadFavorites()
+            stickerManager.loadCustomStickers()
         }
     }
 
