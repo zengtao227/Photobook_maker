@@ -200,7 +200,7 @@ public class SaddleStitchExporter {
         let leftImages = await preloadFilteredImages(for: leftPage)
         let rightImages = await preloadFilteredImages(for: rightPage)
         
-        // Create view
+        // Create base view
         let sheetView = SaddleStitchSheetView(
             leftPage: leftPage,
             rightPage: rightPage,
@@ -210,11 +210,27 @@ public class SaddleStitchExporter {
             sheetInfo: sheetInfo
         )
         
-        // Render
-        let totalWidth = config.fullPageSize.width * 2
-        let totalHeight = config.fullPageSize.height
+        // Wrap with print marks if needed
+        let finalView: AnyView
+        if config.includeCropMarks || config.includeRegistrationMarks || config.includeColorBars {
+            finalView = AnyView(
+                PrintMarksWrapper(
+                    content: sheetView,
+                    config: config,
+                    pageNumber: 1,
+                    totalPages: 1
+                )
+            )
+        } else {
+            finalView = AnyView(sheetView)
+        }
         
-        let renderer = ImageRenderer(content: sheetView
+        // Calculate dimensions
+        let totalWidth = config.includeCropMarks ? config.totalPageSize.width * 2 : config.fullPageSize.width * 2
+        let totalHeight = config.includeCropMarks ? config.totalPageSize.height : config.fullPageSize.height
+        
+        // Render
+        let renderer = ImageRenderer(content: finalView
             .frame(width: totalWidth, height: totalHeight))
         renderer.scale = config.scaleFactor
         

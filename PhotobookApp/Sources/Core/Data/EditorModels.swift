@@ -68,6 +68,9 @@ public struct PhotoLayer: LayerProtocol {
     public var shadowRadius: Double = 0.0 // 0 to 30
     public var shadowOpacity: Double = 0.5 // 0 to 1
     
+    // Opacity (Added for background images)
+    public var opacity: Double = 1.0 // 0 to 1
+    
     // Border Style Enum
     public enum BorderStyle: String, Codable, CaseIterable {
         case solid = "实线"
@@ -212,6 +215,19 @@ public struct PageModel: Identifiable, Codable {
     public var pageNumber: Int
     public var layers: [AnyLayer] = [] // Type-erased wrapper
     public var backgroundColorHex: String = "#FFFFFF"
+    
+    // 背景类型支持
+    public var backgroundType: BackgroundType = .solid
+    public var gradientColors: [String]? = nil  // 渐变颜色
+    public var patternType: String? = nil  // 图案类型
+    public var textureType: String? = nil  // 纹理类型
+    
+    public enum BackgroundType: String, Codable {
+        case solid
+        case gradient
+        case pattern
+        case texture
+    }
     
     public init(pageNumber: Int) {
         self.id = UUID()

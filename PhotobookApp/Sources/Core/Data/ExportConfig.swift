@@ -6,15 +6,12 @@ import SwiftUI
 /// PDF export mode options
 public enum ExportMode: String, Codable, CaseIterable {
     case singlePages = "singlePages"
-    case spreads = "spreads"
     case productionWrap = "productionWrap"
     
     public func displayName(localization: LocalizationManager) -> String {
         switch self {
         case .singlePages:
             return localization.localized(.singlePages)
-        case .spreads:
-            return localization.localized(.spreads)
         case .productionWrap:
             return localization.localized(.productionWrap)
         }
@@ -24,15 +21,11 @@ public enum ExportMode: String, Codable, CaseIterable {
         switch self {
         case .singlePages:
             return localization.currentLanguage == .chinese 
-                ? "每页单独导出为一个PDF页面" 
-                : "Export each page as a separate PDF page"
-        case .spreads:
-            return localization.currentLanguage == .chinese 
-                ? "左右页合并为跨页导出" 
-                : "Merge left and right pages as spreads"
+                ? "每页单独导出（不推荐，需要自己拼版）" 
+                : "Export each page separately (not recommended)"
         case .productionWrap:
             return localization.currentLanguage == .chinese 
-                ? "包含出血、裁切线的印刷级文件" 
+                ? "印刷级文件（包含出血、裁切线）" 
                 : "Production-ready file with bleed and crop marks"
         }
     }
@@ -40,7 +33,6 @@ public enum ExportMode: String, Codable, CaseIterable {
     public var icon: String {
         switch self {
         case .singlePages: return "doc.on.doc"
-        case .spreads: return "book.pages"
         case .productionWrap: return "printer"
         }
     }
@@ -128,8 +120,8 @@ public struct ExportConfiguration: Codable {
     
     // MARK: - Export Mode
     
-    /// Export mode (single pages, spreads, or production)
-    public var exportMode: ExportMode = .spreads
+    /// Export mode (single pages or production)
+    public var exportMode: ExportMode = .productionWrap
     
     // MARK: - Print Marks
     
@@ -188,7 +180,7 @@ public struct ExportConfiguration: Codable {
         var config = ExportConfiguration()
         config.dpi = 72
         config.includeBleed = false
-        config.exportMode = .spreads
+        config.exportMode = .productionWrap
         config.includeCropMarks = false
         return config
     }
@@ -253,9 +245,11 @@ public struct ExportResult {
     public let pageCount: Int
     public let duration: TimeInterval
     public let error: Error?
+    public var sheetCount: Int = 0
+    public var printPaperSize: String = ""
     
-    public static func success(url: URL, fileSize: Int64, pageCount: Int, duration: TimeInterval) -> ExportResult {
-        ExportResult(success: true, outputURL: url, fileSize: fileSize, pageCount: pageCount, duration: duration, error: nil)
+    public static func success(url: URL, fileSize: Int64, pageCount: Int, duration: TimeInterval, sheetCount: Int = 0, printPaperSize: String = "") -> ExportResult {
+        ExportResult(success: true, outputURL: url, fileSize: fileSize, pageCount: pageCount, duration: duration, error: nil, sheetCount: sheetCount, printPaperSize: printPaperSize)
     }
     
     public static func failure(error: Error) -> ExportResult {

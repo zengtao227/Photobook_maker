@@ -4,6 +4,7 @@ struct CanvasView: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(BookContext.self) private var bookContext
     @Environment(EditorState.self) private var editorState
+    @Environment(LocalizationManager.self) private var localization
     @FocusState private var isCanvasFocused: Bool
     
     var body: some View {
@@ -35,7 +36,21 @@ struct CanvasView: View {
                     // Logic: We assume the settings (e.g. A6) apply to a SINGLE PAGE.
                     // So a spread is 2x Width.
                     let singlePageSize = bookContext.currentSize
-                    let spreadAspectRatio = (singlePageSize.width * 2) / singlePageSize.height
+                    
+                    // 根据当前编辑目标决定长宽比
+                    let spreadAspectRatio: CGFloat = {
+                        switch editorState.currentTarget {
+                        case .frontCover, .backCover:
+                            // 封面和封底只显示一面，使用单页长宽比
+                            return singlePageSize.width / singlePageSize.height
+                        case .innerSpread(_):
+                            // 内页都使用跨页长宽比（包括第一页和最后一页）
+                            return (singlePageSize.width * 2) / singlePageSize.height
+                        case .fullCoverWrap:
+                            // 全包封面使用跨页长宽比
+                            return (singlePageSize.width * 2) / singlePageSize.height
+                        }
+                    }()
                     
                     ZStack {
                         // Shadow (Book Lift)
@@ -43,96 +58,139 @@ struct CanvasView: View {
                             .aspectRatio(spreadAspectRatio, contentMode: .fit)
                             .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
                         
-                        HStack(spacing: 0) {
-                            // 根据当前编辑目标决定显示哪些页面
-                            switch editorState.currentTarget {
-                            case .frontCover:
-                                // 封面：只显示右侧（封面外侧）
-                                // leftPage存储封面内容，显示在右侧
-                                Color.clear
-                                    .frame(width: singlePageSize.width)
-                                
-                                // Spine
-                                Rectangle()
-                                    .fill(LinearGradient(
-                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ))
-                                    .frame(width: 2)
-                                    .zIndex(1)
-                                
-                                // 封面（右侧）- 使用leftPage的数据
-                                BookPage(isLeft: true, size: singlePageSize)
-                                
-                            case .backCover:
-                                // 封底：只显示左侧（封底外侧）
-                                // rightPage存储封底内容，显示在左侧
-                                BookPage(isLeft: false, size: singlePageSize)
-                                
-                                // Spine
-                                Rectangle()
-                                    .fill(LinearGradient(
-                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ))
-                                    .frame(width: 2)
-                                    .zIndex(1)
-                                
-                                Color.clear
-                                    .frame(width: singlePageSize.width)
-                                
-                            case .innerSpread(let index):
-                                // 内页：根据是否是第一页或最后一页决定
+                        // 根据当前编辑目标决定布局
+                        Group {
+                            if case .innerSpread(let index) = editorState.currentTarget {
                                 let isFirstSpread = (index == 0)
                                 let isLastSpread = (index == editorState.spreadCount - 1)
                                 
                                 if isFirstSpread {
-                                    // 第一页：左侧空白（背面是封面）
-                                    Color.clear
-                                        .frame(width: singlePageSize.width)
+                                    // 第一页：左侧显示"封面背面"提示，右侧可编辑
+                                    HStack(spacing: 0) {
+                                        // 左侧：封面背面（不可编辑）
+                                        ZStack {
+                                            Rectangle()
+                                                .fill(Color.white)
+                                            
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "book.closed")
+                                                    .font(.system(size: 48))
+                                                    .foregroundColor(Color.gray.opacity(0.2))
+                                                Text(localization.currentLanguage == .chinese ? "封面背面" : "Cover Back")
+                                                    .font(.title3)
+                                                    .foregroundColor(Color.gray.opacity(0.3))
+                                                Text(localization.currentLanguage == .chinese ? "(不可编辑)" : "(Non-editable)")
+                                                    .font(.caption)
+                                                    .foregroundColor(Color.gray.opacity(0.3))
+                                            }
+                                        }
+                                        .aspectRatio(singlePageSize.width / singlePageSize.height, contentMode: .fit)
+                                        
+                                        // Spine
+                                        Rectangle()
+                                            .fill(LinearGradient(
+                                                colors: [.black.opacity(0.2), .black.opacity(0.05), .black.opacity(0.2)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            ))
+                                            .frame(width: 3)
+                                            .zIndex(1000)
+                                        
+                                        // 右侧：第一页内容（可编辑）
+                                        BookPage(isLeft: false, size: singlePageSize)
+                                            .aspectRatio(singlePageSize.width / singlePageSize.height, contentMode: .fit)
+                                    }
+                                } else if isLastSpread {
+                                    // 最后一页：左侧可编辑，右侧显示"封底背面"提示
+                                    HStack(spacing: 0) {
+                                        // 左侧：最后一页内容（可编辑）
+                                        BookPage(isLeft: true, size: singlePageSize)
+                                            .aspectRatio(singlePageSize.width / singlePageSize.height, contentMode: .fit)
+                                        
+                                        // Spine
+                                        Rectangle()
+                                            .fill(LinearGradient(
+                                                colors: [.black.opacity(0.2), .black.opacity(0.05), .black.opacity(0.2)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            ))
+                                            .frame(width: 3)
+                                            .zIndex(1000)
+                                        
+                                        // 右侧：封底背面（不可编辑）
+                                        ZStack {
+                                            Rectangle()
+                                                .fill(Color.white)
+                                            
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "book.closed")
+                                                    .font(.system(size: 48))
+                                                    .foregroundColor(Color.gray.opacity(0.2))
+                                                Text(localization.currentLanguage == .chinese ? "封底背面" : "Back Cover Back")
+                                                    .font(.title3)
+                                                    .foregroundColor(Color.gray.opacity(0.3))
+                                                Text(localization.currentLanguage == .chinese ? "(不可编辑)" : "(Non-editable)")
+                                                    .font(.caption)
+                                                    .foregroundColor(Color.gray.opacity(0.3))
+                                            }
+                                        }
+                                        .aspectRatio(singlePageSize.width / singlePageSize.height, contentMode: .fit)
+                                    }
                                 } else {
-                                    // 左页正常显示
+                                    // 中间的跨页：显示完整两面
+                                    HStack(spacing: 0) {
+                                        BookPage(isLeft: true, size: singlePageSize)
+                                        
+                                        // Spine
+                                        Rectangle()
+                                            .fill(LinearGradient(
+                                                colors: [.black.opacity(0.2), .black.opacity(0.05), .black.opacity(0.2)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            ))
+                                            .frame(width: 3)
+                                            .zIndex(1000)
+                                        
+                                        BookPage(isLeft: false, size: singlePageSize)
+                                    }
+                                    .aspectRatio(spreadAspectRatio, contentMode: .fit)
+                                }
+                            } else {
+                                // 封面、封底、全包封面
+                                switch editorState.currentTarget {
+                                case .frontCover:
+                                    // 封面：只显示右侧（封面外侧），使用单页布局
                                     BookPage(isLeft: true, size: singlePageSize)
-                                }
-                                
-                                // Spine
-                                Rectangle()
-                                    .fill(LinearGradient(
-                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ))
-                                    .frame(width: 2)
-                                    .zIndex(1)
-                                
-                                if isLastSpread {
-                                    // 最后一页：右侧空白（背面是封底）
-                                    Color.clear
-                                        .frame(width: singlePageSize.width)
-                                } else {
-                                    // 右页正常显示
+                                        .aspectRatio(spreadAspectRatio, contentMode: .fit)
+                                    
+                                case .backCover:
+                                    // 封底：只显示左侧（封底外侧），使用单页布局
                                     BookPage(isLeft: false, size: singlePageSize)
+                                        .aspectRatio(spreadAspectRatio, contentMode: .fit)
+                                    
+                                case .fullCoverWrap:
+                                    // 全包封面：显示完整跨页
+                                    HStack(spacing: 0) {
+                                        BookPage(isLeft: true, size: singlePageSize)
+                                        
+                                        Rectangle()
+                                            .fill(LinearGradient(
+                                                colors: [.black.opacity(0.2), .black.opacity(0.05), .black.opacity(0.2)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            ))
+                                            .frame(width: 3)
+                                            .zIndex(1000)
+                                        
+                                        BookPage(isLeft: false, size: singlePageSize)
+                                    }
+                                    .aspectRatio(spreadAspectRatio, contentMode: .fit)
+                                    
+                                default:
+                                    EmptyView()
                                 }
-                                
-                            case .fullCoverWrap:
-                                // 全包封面：显示完整跨页
-                                BookPage(isLeft: true, size: singlePageSize)
-                                
-                                Rectangle()
-                                    .fill(LinearGradient(
-                                        colors: [.black.opacity(0.1), .clear, .black.opacity(0.1)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ))
-                                    .frame(width: 2)
-                                    .zIndex(1)
-                                
-                                BookPage(isLeft: false, size: singlePageSize)
                             }
                         }
-                        .aspectRatio(spreadAspectRatio, contentMode: .fit)
                     }
                     .padding(40) // Padding from window edges
                 }
@@ -161,6 +219,89 @@ struct BookPage: View {
         isLeft ? editorState.leftPage : editorState.rightPage
     }
     
+    // 背景视图
+    @ViewBuilder
+    private var backgroundView: some View {
+        switch pageModel.backgroundType {
+        case .solid:
+            Rectangle()
+                .fill(Color(hex: pageModel.backgroundColorHex))
+            
+        case .gradient:
+            if let colors = pageModel.gradientColors, !colors.isEmpty {
+                LinearGradient(
+                    colors: colors.map { Color(hex: $0) },
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                Rectangle()
+                    .fill(Color(hex: pageModel.backgroundColorHex))
+            }
+            
+        case .pattern:
+            ZStack {
+                Rectangle()
+                    .fill(Color(hex: pageModel.backgroundColorHex))
+                
+                if let patternType = pageModel.patternType {
+                    patternView(for: patternType)
+                }
+            }
+            
+        case .texture:
+            ZStack {
+                Rectangle()
+                    .fill(Color(hex: pageModel.backgroundColorHex))
+                
+                if let textureType = pageModel.textureType {
+                    textureView(for: textureType)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func patternView(for type: String) -> some View {
+        switch type {
+        case "dots":
+            DotsPattern()
+        case "stripes":
+            StripesPattern()
+        case "grid":
+            GridPattern()
+        case "diagonal":
+            DiagonalPattern()
+        case "hearts":
+            HeartsPattern()
+        case "stars":
+            StarsPattern()
+        default:
+            EmptyView()
+        }
+    }
+    
+    @ViewBuilder
+    private func textureView(for type: String) -> some View {
+        // 纹理可以用半透明图案模拟
+        switch type {
+        case "paper":
+            DotsPattern()
+                .opacity(0.1)
+        case "fabric":
+            DiagonalPattern()
+                .opacity(0.15)
+        case "wood":
+            StripesPattern()
+                .opacity(0.2)
+        case "marble":
+            GridPattern()
+                .opacity(0.1)
+        default:
+            EmptyView()
+        }
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             // 计算缩放比例：显示尺寸 / 逻辑尺寸
@@ -171,9 +312,8 @@ struct BookPage: View {
             ZStack(alignment: .topLeading) {
                 // MARK: - Background Layer (Non-interactive)
                 ZStack {
-                    // Paper
-                    Rectangle()
-                        .fill(Color.white)
+                    // 背景渲染
+                    backgroundView
                     
                     // 如果是空白占位页，显示提示
                     // -98和-99是空白占位页，-1是封底，0是封面
@@ -196,8 +336,31 @@ struct BookPage: View {
                     }
                     
                     // Inner Shadow (Simulate binding curve)
+                    // 封面（pageNumber=0）：左边有阴影（装订边）
+                    // 封底（pageNumber=-1）：右边有阴影（装订边）
+                    // 内页左页：右边有阴影（装订边）
+                    // 内页右页：左边有阴影（装订边）
                     HStack {
-                        if !isLeft {
+                        if pageModel.pageNumber == 0 {
+                            // 封面：左边阴影
+                            LinearGradient(
+                                colors: [.black.opacity(0.15), .clear],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: 20)
+                            Spacer()
+                        } else if pageModel.pageNumber == -1 {
+                            // 封底：右边阴影
+                            Spacer()
+                            LinearGradient(
+                                colors: [.clear, .black.opacity(0.15)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .frame(width: 20)
+                        } else if !isLeft {
+                            // 右页：左边阴影
                             LinearGradient(
                                 colors: [.black.opacity(0.15), .clear],
                                 startPoint: .leading,
@@ -206,6 +369,7 @@ struct BookPage: View {
                             .frame(width: 20)
                             Spacer()
                         } else {
+                            // 左页：右边阴影
                             Spacer()
                             LinearGradient(
                                 colors: [.clear, .black.opacity(0.15)],
@@ -497,7 +661,7 @@ struct PhotoLayerElement: View {
                 }
             }
         }
-        .frame(width: layer.frame.width, height: layer.frame.height)
+        // 不在这里设置frame，由外部InteractiveLayer控制
         .contentShape(Rectangle())
         .clipped()
         // Apply Feathering (Masking)
@@ -553,6 +717,8 @@ struct PhotoLayerElement: View {
             x: 0,
             y: layer.shadowRadius / 3
         )
+        // Apply layer opacity
+        .opacity(layer.opacity)
         .allowsHitTesting(false)
         .onAppear {
             loadFilteredImage()
@@ -736,22 +902,7 @@ struct InteractiveLayer: View {
                         newDisplayFrame.origin.x += adjustedX
                         newDisplayFrame.origin.y += adjustedY
                         
-                        // 边界检查：只对封面和封底进行限制
-                        let pageModel = isLeftPage ? editorState.leftPage : editorState.rightPage
-                        let displayPageSize = CGSize(width: logicalPageSize.width * scale, height: logicalPageSize.height * scale)
-                        
-                        // 只对封面和封底进行边界限制
-                        if pageModel.pageNumber == 0 {
-                            // 封面：限制在页面范围内
-                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
-                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
-                        } else if pageModel.pageNumber == -1 {
-                            // 封底：限制在页面范围内
-                            newDisplayFrame.origin.x = max(0, min(newDisplayFrame.origin.x, displayPageSize.width - newDisplayFrame.width))
-                            newDisplayFrame.origin.y = max(0, min(newDisplayFrame.origin.y, displayPageSize.height - newDisplayFrame.height))
-                        }
-                        // 内页（pageNumber > 0）：不做任何限制，允许自由移动
-                        
+                        // 不做任何边界限制，允许自由移动
                         transientFrame = newDisplayFrame
                     }
                     .onEnded { _ in
@@ -1066,6 +1217,14 @@ struct SelectionBorder: View {
     @State private var innerInitialFrame: CGRect? = nil
     @State private var innerInitialRotation: Double? = nil
     
+    // Normalize rotation to -180 to 180 range for display
+    private var normalizedRotation: Double {
+        var r = rotation.truncatingRemainder(dividingBy: 360)
+        if r > 180 { r -= 360 }
+        if r < -180 { r += 360 }
+        return r
+    }
+    
     var body: some View {
         ZStack {
             // Blue Border
@@ -1083,29 +1242,44 @@ struct SelectionBorder: View {
             }
             .allowsHitTesting(false)
             
-            // Rotation Handle Knob
-            Circle()
-                .fill(Color.white)
-                .overlay(Circle().stroke(Color.blue, lineWidth: 2))
-                .frame(width: 24, height: 24)
-                .background(Color.black.opacity(0.001).frame(width: 44, height: 44))
-                .offset(y: -(frame.height/2 + 32)) 
-                .gesture(
-                    DragGesture(coordinateSpace: .global)
-                        .onChanged { value in
-                            if innerInitialRotation == nil {
-                                innerInitialRotation = rotation
-                            }
-                            // Simple rotation logic: Horizontal drag rotates
-                            let sensitivity: Double = 0.8
-                            let delta = value.translation.width * sensitivity
-                            self.rotation = (innerInitialRotation ?? 0) + delta
+            // Rotation Handle Knob with angle display
+            VStack(spacing: 4) {
+                // Rotation angle display (shows when rotating or when angle != 0)
+                if innerInitialRotation != nil || abs(rotation) > 0.1 {
+                    Text(String(format: "%.1f°", normalizedRotation))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue)
+                        )
+                }
+                
+                Circle()
+                    .fill(Color.white)
+                    .overlay(Circle().stroke(Color.blue, lineWidth: 2))
+                    .frame(width: 24, height: 24)
+                    .background(Color.black.opacity(0.001).frame(width: 44, height: 44))
+            }
+            .offset(y: -(frame.height/2 + 32 + (innerInitialRotation != nil || abs(rotation) > 0.1 ? 10 : 0)))
+            .gesture(
+                DragGesture(coordinateSpace: .global)
+                    .onChanged { value in
+                        if innerInitialRotation == nil {
+                            innerInitialRotation = rotation
                         }
-                        .onEnded { _ in
-                            innerInitialRotation = nil
-                            onCommitRotation()
-                        }
-                )
+                        // Simple rotation logic: Horizontal drag rotates
+                        let sensitivity: Double = 0.8
+                        let delta = value.translation.width * sensitivity
+                        self.rotation = (innerInitialRotation ?? 0) + delta
+                    }
+                    .onEnded { _ in
+                        innerInitialRotation = nil
+                        onCommitRotation()
+                    }
+            )
             
             // Resize Handles
             handles
@@ -1163,52 +1337,51 @@ struct SelectionBorder: View {
         let minSize: CGFloat = 30
         
         if lockAspectRatio {
-            // 改进的缩放算法：使用更直观的方法
+            // 最简单的缩放：只用水平拖动距离来决定宽度变化
+            var deltaW: CGFloat = 0
+            
+            switch alignment {
+            case .bottomTrailing, .topTrailing:
+                // 右侧角：向右拖动放大
+                deltaW = drag.width
+            case .topLeading, .bottomLeading:
+                // 左侧角：向左拖动放大（负方向）
+                deltaW = -drag.width
+            default: break
+            }
+            
+            let newW = max(minSize, startFrame.width + deltaW)
+            let newH = newW / ar
+            
             switch alignment {
             case .bottomTrailing:
-                // 右下角：向右下拖动放大，向左上拖动缩小
-                let avgDrag = (drag.width + drag.height) / 2.0
-                let newW = max(minSize, startFrame.width + avgDrag)
-                let newH = newW / ar
+                // 右下角：origin不变
                 newFrame.size.width = newW
                 newFrame.size.height = newH
                 
             case .topLeading:
-                // 左上角：向左上拖动放大，向右下拖动缩小
-                let avgDrag = -(drag.width + drag.height) / 2.0
-                let newW = max(minSize, startFrame.width + avgDrag)
-                let newH = newW / ar
-                let widthDiff = startFrame.width - newW
-                let heightDiff = startFrame.height - newH
-                newFrame.origin.x = startFrame.origin.x + widthDiff
-                newFrame.origin.y = startFrame.origin.y + heightDiff
+                // 左上角：origin随尺寸变化
+                newFrame.origin.x = startFrame.maxX - newW
+                newFrame.origin.y = startFrame.maxY - newH
                 newFrame.size.width = newW
                 newFrame.size.height = newH
                 
             case .topTrailing:
-                // 右上角：向右上拖动放大
-                let avgDrag = (drag.width - drag.height) / 2.0
-                let newW = max(minSize, startFrame.width + avgDrag)
-                let newH = newW / ar
-                let heightDiff = startFrame.height - newH
-                newFrame.origin.y = startFrame.origin.y + heightDiff
+                // 右上角：x不变，y随高度变化
+                newFrame.origin.y = startFrame.maxY - newH
                 newFrame.size.width = newW
                 newFrame.size.height = newH
                 
             case .bottomLeading:
-                // 左下角：向左下拖动放大
-                let avgDrag = (drag.height - drag.width) / 2.0
-                let newW = max(minSize, startFrame.width + avgDrag)
-                let newH = newW / ar
-                let widthDiff = startFrame.width - newW
-                newFrame.origin.x = startFrame.origin.x + widthDiff
+                // 左下角：y不变，x随宽度变化
+                newFrame.origin.x = startFrame.maxX - newW
                 newFrame.size.width = newW
                 newFrame.size.height = newH
                 
             default: break
             }
         } else {
-            // Freeform (not used for photos)
+            // Freeform
             switch alignment {
             case .topLeading:
                 newFrame.origin.x += drag.width; newFrame.origin.y += drag.height

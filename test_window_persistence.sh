@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "🧪 测试窗口大小保存功能"
+echo ""
+echo "测试步骤："
+echo "1. 启动应用"
+echo "2. 调整窗口大小到你喜欢的尺寸"
+echo "3. 关闭应用（Cmd+Q 或点击关闭按钮）"
+echo "4. 再次启动应用"
+echo "5. 检查窗口是否恢复到之前的大小"
+echo ""
+echo "调试信息："
+echo "保存的窗口设置："
+defaults read com.photobookpro.app MainWindowFrame 2>/dev/null || echo "  (尚未保存)"
+echo ""
+echo "如果窗口大小没有恢复，请查看控制台输出中的调试信息"

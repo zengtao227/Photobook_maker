@@ -5,6 +5,7 @@ struct ExportSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ThemeManager.self) private var themeManager
     @Environment(EditorState.self) private var editorState
+    @Environment(BookContext.self) private var bookContext
     @Environment(LocalizationManager.self) private var localization
     
     @State private var config = ExportConfiguration.professionalPrint
@@ -73,7 +74,7 @@ struct ExportSettingsView: View {
             isPresented: $showingFilePicker,
             document: PDFExportDocument(),
             contentType: .pdf,
-            defaultFilename: "Photobook_\(formattedDate).pdf"
+            defaultFilename: suggestedFilename
         ) { result in
             handleExportResult(result)
         }
@@ -92,7 +93,16 @@ struct ExportSettingsView: View {
         } message: {
             if let result = exportResult {
                 if result.success {
-                    Text("已成功导出 \(result.pageCount) 页\n文件大小: \(formatFileSize(result.fileSize ?? 0))")
+                    let bindingType = editorState.bookStructure.bindingType
+                    let bindingName = bindingType == .saddleStitch ? "骑马钉" : 
+                                     bindingType == .softcover ? "软皮装" :
+                                     bindingType == .hardcover ? "精装" : "蝴蝶装"
+                    
+                    if result.sheetCount > 0 {
+                        Text("已成功导出 \(bindingName) PDF\nPDF页数: \(result.pageCount) 页（跨页格式）\n打印纸张: \(result.sheetCount) 张 \(result.printPaperSize) 纸（双面打印）\n文件大小: \(formatFileSize(result.fileSize ?? 0))")
+                    } else {
+                        Text("已成功导出 \(result.pageCount) 页\n文件大小: \(formatFileSize(result.fileSize ?? 0))")
+                    }
                 } else {
                     Text("导出失败: \(result.error?.localizedDescription ?? "未知错误")")
                 }
@@ -458,6 +468,74 @@ struct ExportSettingsView: View {
         return formatter.string(from: Date())
     }
     
+    /// Generate a descriptive filename with print info
+    /// Localized based on current language setting
+    private var suggestedFilename: String {
+        let bindingType = editorState.bookStructure.bindingType
+        let pageSize = bookContext.pageSize
+        
+        // Size name (localized)
+        let sizeName: String
+        switch pageSize {
+        case .a4Landscape: sizeName = "A4"
+        case .a5Landscape: sizeName = "A5"
+        case .a6Landscape: sizeName = "A6"
+        case .squareLarge: sizeName = localization.currentLanguage == .chinese ? "方形30" : "Square30"
+        case .squareMedium: sizeName = localization.currentLanguage == .chinese ? "方形21" : "Square21"
+        case .custom: sizeName = localization.currentLanguage == .chinese ? "自定义" : "Custom"
+        }
+        
+        // Binding name (localized)
+        let bindingName: String
+        switch localization.currentLanguage {
+        case .chinese:
+            switch bindingType {
+            case .softcover: bindingName = "胶装"
+            case .hardcover: bindingName = "精装"
+            case .layflat: bindingName = "蝴蝶装"
+            case .saddleStitch: bindingName = "骑马钉"
+            }
+        case .english:
+            switch bindingType {
+            case .softcover: bindingName = "Softcover"
+            case .hardcover: bindingName = "Hardcover"
+            case .layflat: bindingName = "Layflat"
+            case .saddleStitch: bindingName = "SaddleStitch"
+            }
+        case .german:
+            switch bindingType {
+            case .softcover: bindingName = "Softcover"
+            case .hardcover: bindingName = "Hardcover"
+            case .layflat: bindingName = "Leporello"
+            case .saddleStitch: bindingName = "Rückstich"
+            }
+        default:
+            // Fallback to English for any other languages
+            switch bindingType {
+            case .softcover: bindingName = "Softcover"
+            case .hardcover: bindingName = "Hardcover"
+            case .layflat: bindingName = "Layflat"
+            case .saddleStitch: bindingName = "SaddleStitch"
+            }
+        }
+        
+        // Duplex print indicator (localized)
+        let duplexName: String
+        switch localization.currentLanguage {
+        case .chinese: duplexName = "双面打印"
+        case .english: duplexName = "Duplex"
+        case .german: duplexName = "Duplex"
+        default: duplexName = "Duplex" // Fallback to English
+        }
+        
+        // Date (shorter format)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd"
+        let dateStr = dateFormatter.string(from: Date())
+        
+        return "Photobook_\(sizeName)_\(duplexName)_\(bindingName)_\(dateStr).pdf"
+    }
+    
     private var estimatedFileSize: String {
         // Rough estimation based on DPI and page count
         let pageCount = editorState.bookStructure.totalInnerPages + 2 // +2 for covers
@@ -505,10 +583,18 @@ struct ExportSettingsView: View {
             // Save current state first
             editorState.saveCurrentState()
             
-            let bindingType = editorState.bookStructure.bindingType
-            
             // Create PDF config from export config
-            var pdfConfig = PDFExportConfig.defaultA4
+            // 使用逻辑坐标系统（和编辑器一致）
+            let singlePageLogicalSize = bookContext.logicalPageSizeInPoints
+            let spreadLogicalSize = CGSize(width: singlePageLogicalSize.width * 2, height: singlePageLogicalSize.height)
+            
+            print("🔍 坐标系统信息:")
+            print("   物理尺寸(mm): \(bookContext.currentSize)")
+            print("   单页逻辑尺寸(points): \(singlePageLogicalSize)")
+            print("   跨页逻辑尺寸(points): \(spreadLogicalSize)")
+            
+            // PDF使用跨页逻辑尺寸（config.pageSize = 跨页尺寸）
+            var pdfConfig = PDFExportConfig(pageSize: spreadLogicalSize)
             pdfConfig.dpi = config.dpi
             pdfConfig.includeBleed = config.includeBleed
             pdfConfig.bleedMM = config.bleedMM
@@ -518,9 +604,14 @@ struct ExportSettingsView: View {
             pdfConfig.includePageInfo = config.includePageInfo
             
             var pageCount = 0
+            var sheetCount = 0
+            var printPaperSize = ""
+            
+            // 根据装订类型选择导出方式
+            let bindingType = editorState.bookStructure.bindingType
             
             if bindingType == .saddleStitch {
-                // Use saddle stitch exporter with imposition
+                // 骑马钉 - 使用特殊拼版
                 try await SaddleStitchExporter.exportSaddleStitch(
                     bookStructure: editorState.bookStructure,
                     config: pdfConfig,
@@ -532,37 +623,88 @@ struct ExportSettingsView: View {
                 
                 let totalPages = editorState.bookStructure.totalInnerPages + 2
                 let adjustedTotal = ((totalPages + 3) / 4) * 4
-                pageCount = adjustedTotal / 2 // Each sheet has 2 PDF pages (front + back)
+                pageCount = adjustedTotal / 2  // PDF页数 = 纸张正反面数
+                sheetCount = adjustedTotal / 4  // 纸张数
                 
             } else {
-                // Use standard spread exporter for other binding types
-                var spreadsToExport: [(left: PageModel, right: PageModel)] = []
+                // 其他装订类型 - 导出跨页（封面单页 + 内页跨页 + 封底单页）
+                // 收集跨页
+                var spreads: [(left: PageModel, right: PageModel)] = []
                 
-                // Add cover spread
-                spreadsToExport.append((left: editorState.bookStructure.backCover, 
-                                        right: editorState.bookStructure.frontCover))
+                print("🔍 开始收集跨页数据...")
+                print("   物理尺寸(mm): \(bookContext.currentSize)")
+                print("   单页逻辑尺寸: \(singlePageLogicalSize)")
+                print("   跨页逻辑尺寸: \(spreadLogicalSize)")
+                print("   内页跨页数: \(editorState.bookStructure.innerSpreads.count)")
                 
-                // Add inner spreads
-                spreadsToExport.append(contentsOf: editorState.bookStructure.innerSpreads)
+                // 封面（作为单页，左侧留白）
+                var blankPage = PageModel(pageNumber: -99)
+                blankPage.backgroundColorHex = "#FFFFFF"
+                spreads.append((left: blankPage, right: editorState.bookStructure.frontCover))
+                print("   添加封面: frontCover有\(editorState.bookStructure.frontCover.layers.count)个图层")
                 
+                // 内页跨页
+                for (index, spread) in editorState.bookStructure.innerSpreads.enumerated() {
+                    spreads.append((left: spread.left, right: spread.right))
+                    print("   添加内页[\(index)]: left有\(spread.left.layers.count)个图层, right有\(spread.right.layers.count)个图层")
+                }
+                
+                // 封底（作为单页，左侧放封底，右侧留白）
+                // 重要：封底必须在左边！这样装订后才能正确显示在书的背面
+                // 印刷展开图：[封底(左)] + [空白(右)]
+                var blankPage2 = PageModel(pageNumber: -98)
+                blankPage2.backgroundColorHex = "#FFFFFF"
+                spreads.append((left: editorState.bookStructure.backCover, right: blankPage2))
+                print("   添加封底: backCover有\(editorState.bookStructure.backCover.layers.count)个图层 (放在左页)")
+                
+                print("   总共\(spreads.count)个跨页")
+                
+                // 使用SpreadPDFExporter导出（ImageRenderer方案，坐标系统简单）
                 try await SpreadPDFExporter.exportBook(
-                    spreads: spreadsToExport,
+                    spreads: spreads,
                     config: pdfConfig,
                     to: url
                 ) { progress in
-                    exportProgress.currentPage = Int(progress * Double(spreadsToExport.count))
-                    exportProgress.totalPages = spreadsToExport.count
+                    exportProgress.currentPage = Int(progress * Double(spreads.count))
+                    exportProgress.totalPages = spreads.count
                 }
                 
-                pageCount = spreadsToExport.count
+                pageCount = spreads.count  // PDF页数 = 跨页数
+                sheetCount = (pageCount + 1) / 2  // 纸张数（双面打印）
             }
+            
             
             // Get file size
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             let fileSize = attributes[.size] as? Int64 ?? 0
             
+            // 计算打印纸张尺寸（基于物理尺寸）
+            let singlePageSize = bookContext.currentSize
+            let spreadWidth = singlePageSize.width * 2
+            let spreadHeight = singlePageSize.height
+            
+            // 根据跨页尺寸确定打印纸张
+            if spreadWidth <= 297 && spreadHeight <= 210 {
+                printPaperSize = "A4"
+            } else if spreadWidth <= 420 && spreadHeight <= 297 {
+                printPaperSize = "A3"
+            } else if spreadWidth <= 594 && spreadHeight <= 420 {
+                printPaperSize = "A2"
+            } else {
+                printPaperSize = "A1"
+            }
+            
             let duration = Date().timeIntervalSince(startTime)
-            exportResult = .success(url: url, fileSize: fileSize, pageCount: pageCount, duration: duration)
+            
+            // 创建结果
+            exportResult = .success(
+                url: url, 
+                fileSize: fileSize, 
+                pageCount: pageCount, 
+                duration: duration,
+                sheetCount: sheetCount,
+                printPaperSize: printPaperSize
+            )
             
         } catch {
             exportResult = .failure(error: error)

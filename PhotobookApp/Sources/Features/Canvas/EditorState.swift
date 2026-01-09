@@ -361,6 +361,13 @@ public class EditorState {
         }
     }
     
+    func updateLayerOpacity(id: LayerID, opacity: Double) {
+        if var layer = findLayer(id) as? PhotoLayer {
+            layer.opacity = opacity
+            updateLayer(layer)
+        }
+    }
+    
     // MARK: - Layer Helpers
     
     private func findLayer(_ id: LayerID) -> (any LayerProtocol)? {
@@ -455,16 +462,21 @@ func addEmojiSticker(emoji: String, isLeftPage: Bool, center: CGPoint? = nil) {
     
     func addPhotoLayer(photo: Photo, isLeftPage: Bool, center: CGPoint? = nil, scale: CGFloat = 1.0) {
         // Calculate initial size based on image aspect ratio
+        // 目标：让照片完整显示，不被裁切
         var targetSize = CGSize(width: 300, height: 200) // Default fall back (逻辑尺寸)
         
         if let w = photo.width, let h = photo.height, w > 0 && h > 0 {
             let aspectRatio = CGFloat(w) / CGFloat(h)
+            
+            // 设置一个合理的最大尺寸
+            let maxDimension: CGFloat = 300
+            
             if aspectRatio > 1 {
-                // Landscape
-                targetSize = CGSize(width: 300, height: 300 / aspectRatio)
+                // Landscape - 宽度为最大值，高度按比例
+                targetSize = CGSize(width: maxDimension, height: maxDimension / aspectRatio)
             } else {
-                // Portrait or Square
-                targetSize = CGSize(width: 250 * aspectRatio, height: 250)
+                // Portrait or Square - 高度为最大值，宽度按比例
+                targetSize = CGSize(width: maxDimension * aspectRatio, height: maxDimension)
             }
         }
         

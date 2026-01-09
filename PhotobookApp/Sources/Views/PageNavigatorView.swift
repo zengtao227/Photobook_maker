@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// A filmstrip-style page navigator with Cover/Inner page separation (Phase 4)
 struct PageNavigatorView: View {
@@ -168,30 +169,24 @@ struct PageNavigatorView: View {
                     } : nil
                 )
                 .id("spread_\(index)")
-                .draggable(SpreadDragData(index: index)) {
-                    // Drag preview
-                    SpreadThumbnailItem(
-                        spreadIndex: index,
-                        leftPage: spread.left,
-                        rightPage: spread.right,
-                        isActive: true,
-                        action: {},
-                        onDelete: nil
-                    )
-                    .opacity(0.8)
-                }
-                .dropDestination(for: SpreadDragData.self) { items, _ in
-                    guard let draggedItem = items.first else { return false }
-                    let fromIndex = draggedItem.index
-                    let toIndex = index
-                    
-                    if fromIndex != toIndex {
-                        withAnimation(.spring(response: 0.3)) {
-                            editorState.moveSpread(from: fromIndex, to: toIndex)
-                        }
+                .onDrag {
+                    // 创建拖拽数据，使用JSON格式
+                    let dragData = SpreadDragData(index: index)
+                    guard let data = try? JSONEncoder().encode(dragData) else {
+                        return NSItemProvider()
                     }
-                    return true
+                    let provider = NSItemProvider()
+                    provider.registerDataRepresentation(forTypeIdentifier: UTType.json.identifier, visibility: .all) { completion in
+                        completion(data, nil)
+                        return nil
+                    }
+                    print("🚀 Started dragging spread \(index)")
+                    return provider
                 }
+                .onDrop(of: [.json], delegate: SpreadDropDelegate(
+                    destinationIndex: index,
+                    editorState: editorState
+                ))
             }
         }
     }
@@ -382,73 +377,74 @@ struct SpreadThumbnailItem: View {
     }
     
     var body: some View {
-        Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                // Spread preview (two-page layout)
-                VStack(spacing: 2) {
-                    HStack(spacing: 1) {
-                        // Left page
-                        SpreadPageMiniature(page: leftPage)
-                        
-                        // Spine indicator
-                        Rectangle()
-                            .fill(Color.black.opacity(0.3))
-                            .frame(width: 2)
-                        
-                        // Right page
-                        SpreadPageMiniature(page: rightPage)
-                    }
-                    .frame(width: 100, height: 60)
-                    .background(Color.white)
-                    .cornerRadius(6)
-                    .shadow(
-                        color: isActive ? themeManager.theme.accentColor.opacity(0.4) : .black.opacity(0.15),
-                        radius: isActive ? 6 : 3,
-                        y: isActive ? 2 : 1
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(isActive ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
-                    )
+        ZStack(alignment: .topTrailing) {
+            // Spread preview (two-page layout)
+            VStack(spacing: 2) {
+                HStack(spacing: 1) {
+                    // Left page
+                    SpreadPageMiniature(page: leftPage)
                     
-                    // Page numbers below thumbnail
-                    HStack(spacing: 0) {
-                        Text("\(leftPageNumber)")
-                            .frame(maxWidth: .infinity)
-                        Text("-")
-                        Text("\(rightPageNumber)")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundColor(isActive ? themeManager.theme.accentColor : themeManager.theme.secondaryTextColor)
+                    // Spine indicator
+                    Rectangle()
+                        .fill(Color.black.opacity(0.3))
+                        .frame(width: 2)
+                    
+                    // Right page
+                    SpreadPageMiniature(page: rightPage)
                 }
+                .frame(width: 100, height: 60)
+                .background(Color.white)
+                .cornerRadius(6)
+                .shadow(
+                    color: isActive ? themeManager.theme.accentColor.opacity(0.4) : .black.opacity(0.15),
+                    radius: isActive ? 6 : 3,
+                    y: isActive ? 2 : 1
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isActive ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
+                )
                 
-                // Spread index badge (top right)
-                Text(localization.localized(.innerSpreadLabel(spreadIndex + 1)))
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(isActive ? themeManager.theme.accentColor : Color.black.opacity(0.6))
-                    .cornerRadius(4)
-                    .offset(x: -2, y: 2)
-                
-                // Delete button (on hover)
-                if let onDelete = onDelete, isHovering {
-                    Button(action: onDelete) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.red)
-                            .background(Color.white.clipShape(Circle()))
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: 8, y: -8)
+                // Page numbers below thumbnail
+                HStack(spacing: 0) {
+                    Text("\(leftPageNumber)")
+                        .frame(maxWidth: .infinity)
+                    Text("-")
+                    Text("\(rightPageNumber)")
+                        .frame(maxWidth: .infinity)
                 }
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(isActive ? themeManager.theme.accentColor : themeManager.theme.secondaryTextColor)
             }
-            .scaleEffect(isActive ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3), value: isActive)
+            
+            // Spread index badge (top right)
+            Text(localization.localized(.innerSpreadLabel(spreadIndex + 1)))
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(isActive ? themeManager.theme.accentColor : Color.black.opacity(0.6))
+                .cornerRadius(4)
+                .offset(x: -2, y: 2)
+            
+            // Delete button (on hover)
+            if let onDelete = onDelete, isHovering {
+                Button(action: onDelete) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.red)
+                        .background(Color.white.clipShape(Circle()))
+                }
+                .buttonStyle(.plain)
+                .offset(x: 8, y: -8)
+            }
         }
-        .buttonStyle(.plain)
+        .scaleEffect(isActive ? 1.05 : 1.0)
+        .animation(.spring(response: 0.3), value: isActive)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            action()
+        }
         .onHover { hovering in
             isHovering = hovering
         }
@@ -532,10 +528,56 @@ extension PageNavigatorView {
 // MARK: - Spread Drag Data
 
 /// Data for drag and drop reordering of spreads
-struct SpreadDragData: Codable, Transferable {
+struct SpreadDragData: Codable {
     let index: Int
+}
+
+// MARK: - Spread Drop Delegate
+
+struct SpreadDropDelegate: DropDelegate {
+    let destinationIndex: Int
+    let editorState: EditorState
     
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .data)
+    func performDrop(info: DropInfo) -> Bool {
+        guard let item = info.itemProviders(for: [.json]).first else {
+            print("❌ No item provider found")
+            return false
+        }
+        
+        item.loadDataRepresentation(forTypeIdentifier: UTType.json.identifier) { data, error in
+            if let error = error {
+                print("❌ Error loading data: \(error)")
+                return
+            }
+            
+            guard let data = data,
+                  let dragData = try? JSONDecoder().decode(SpreadDragData.self, from: data) else {
+                print("❌ Failed to decode drag data")
+                return
+            }
+            
+            let fromIndex = dragData.index
+            let toIndex = destinationIndex
+            
+            print("✅ Moving spread from \(fromIndex) to \(toIndex)")
+            
+            if fromIndex != toIndex {
+                DispatchQueue.main.async {
+                    withAnimation(.spring(response: 0.3)) {
+                        editorState.moveSpread(from: fromIndex, to: toIndex)
+                    }
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    func dropEntered(info: DropInfo) {
+        print("📍 Drop entered at index \(destinationIndex)")
+    }
+    
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
     }
 }

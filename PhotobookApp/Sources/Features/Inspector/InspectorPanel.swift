@@ -8,6 +8,8 @@ struct InspectorPanel: View {
     
     @State private var showStickerPicker = false
     @State private var stickerTargetIsLeft = true
+    @State private var showBackgroundPicker = false
+    @State private var backgroundTargetIsLeft = true
     
     var body: some View {
         ScrollView {
@@ -28,6 +30,10 @@ struct InspectorPanel: View {
             .padding()
         }
         .animation(.easeInOut, value: bookContext.pageSize)
+        .popover(isPresented: $showBackgroundPicker, arrowEdge: .trailing) {
+            BackgroundPickerPopover(isLeftPage: backgroundTargetIsLeft)
+                .frame(width: 450, height: 550)
+        }
     }
     
     // MARK: - Tools Section
@@ -67,6 +73,45 @@ struct InspectorPanel: View {
                 }
                 .buttonStyle(.bordered)
                 .help(localization.localized(.rightPageText))
+            }
+            
+            Divider()
+            
+            // Background Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.currentLanguage == .chinese ? "背景" : "Background")
+                    .font(.subheadline.bold())
+                    .foregroundColor(themeManager.theme.textColor)
+                
+                HStack(spacing: 12) {
+                    Button {
+                        showBackgroundPicker = true
+                        backgroundTargetIsLeft = true
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "photo.fill")
+                                .font(.title2)
+                            Text(localization.localized(.leftPage))
+                                .font(.caption)
+                        }
+                        .frame(width: 70, height: 60)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button {
+                        showBackgroundPicker = true
+                        backgroundTargetIsLeft = false
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "photo.fill")
+                                .font(.title2)
+                            Text(localization.localized(.rightPage))
+                                .font(.caption)
+                        }
+                        .frame(width: 70, height: 60)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
             
             Divider()
@@ -317,6 +362,51 @@ struct InspectorPanel: View {
                 .font(.headline)
                 .foregroundColor(themeManager.theme.textColor)
             
+            // Rotation Settings
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.currentLanguage == .chinese ? "旋转" : "Rotation")
+                    .font(.subheadline.bold())
+                    .foregroundColor(themeManager.theme.textColor)
+                
+                HStack {
+                    Text(localization.currentLanguage == .chinese ? "角度" : "Angle")
+                        .font(.caption)
+                    Spacer()
+                    Text(String(format: "%.1f°", normalizedRotation(layer.rotation)))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack(spacing: 8) {
+                    // Quick rotation buttons
+                    Button("-90°") {
+                        editorState.updateLayerRotation(layer.id, newRotation: layer.rotation - 90)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("0°") {
+                        editorState.updateLayerRotation(layer.id, newRotation: 0)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("+90°") {
+                        editorState.updateLayerRotation(layer.id, newRotation: layer.rotation + 90)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Spacer()
+                }
+                
+                Text(localization.currentLanguage == .chinese ? "提示：拖动旋转手柄或使用快捷按钮" : "Tip: Drag rotation handle or use quick buttons")
+                    .font(.caption2)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
+            }
+            
+            Divider()
+            
             // Border Settings
             VStack(alignment: .leading, spacing: 8) {
                 Text(localization.localized(.border))
@@ -391,6 +481,30 @@ struct InspectorPanel: View {
                         .foregroundColor(.secondary)
                 }
                 Slider(value: bindingForFeathering(layer), in: 0...50)
+            }
+            
+            Divider()
+            
+            // Opacity Settings
+            VStack(alignment: .leading, spacing: 8) {
+                Text(localization.currentLanguage == .chinese ? "不透明度" : "Opacity")
+                    .font(.subheadline.bold())
+                    .foregroundColor(themeManager.theme.textColor)
+                
+                HStack {
+                    Text(localization.currentLanguage == .chinese ? "不透明度" : "Opacity")
+                        .font(.caption)
+                    Spacer()
+                    // 显示不透明度：100% = 完全不透明（完全可见），0% = 完全透明（看不见）
+                    Text(String(format: "%.0f%%", layer.opacity * 100))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: bindingForOpacity(layer), in: 0...1)
+                
+                Text(localization.currentLanguage == .chinese ? "提示：100% = 完全可见，0% = 完全透明" : "Tip: 100% = fully visible, 0% = fully transparent")
+                    .font(.caption2)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
             }
             
             Divider()
@@ -541,6 +655,14 @@ struct InspectorPanel: View {
     
     // MARK: - Helpers
     
+    // Normalize rotation to -180 to 180 range for display
+    private func normalizedRotation(_ rotation: Double) -> Double {
+        var r = rotation.truncatingRemainder(dividingBy: 360)
+        if r > 180 { r -= 360 }
+        if r < -180 { r += 360 }
+        return r
+    }
+    
     private var selectedPhotoLayer: PhotoLayer? {
         guard let id = editorState.selectedLayerId else { return nil }
         if let layer = editorState.leftPage.layers.first(where: { $0.id == id })?.layer as? PhotoLayer {
@@ -688,6 +810,13 @@ struct InspectorPanel: View {
         Binding(
             get: { layer.shadowOpacity },
             set: { editorState.updateLayerShadow(id: layer.id, shadowRadius: layer.shadowRadius, shadowOpacity: $0) }
+        )
+    }
+    
+    private func bindingForOpacity(_ layer: PhotoLayer) -> Binding<Double> {
+        Binding(
+            get: { layer.opacity },
+            set: { editorState.updateLayerOpacity(id: layer.id, opacity: $0) }
         )
     }
     
