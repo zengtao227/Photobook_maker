@@ -17,8 +17,50 @@ public class StickerManager {
     
     public init() {
         createStickersDirectoryIfNeeded()
+        copyBundledStickersIfNeeded()  // 首次启动时复制内置 stickers
         loadCustomStickers()
         loadFavorites()
+    }
+    
+    /// 从 app bundle 复制内置 stickers 到用户目录（仅在首次启动时）
+    private func copyBundledStickersIfNeeded() {
+        guard let userDirectory = customStickersDirectory else { return }
+        
+        // 检查是否已复制过（使用 marker 文件）
+        let markerFile = userDirectory.appendingPathComponent(".bundled_stickers_copied")
+        if fileManager.fileExists(atPath: markerFile.path) {
+            print("ℹ️ Bundled stickers already copied, skipping")
+            return
+        }
+        
+        // 查找 bundle 中的 Stickers 目录
+        guard let bundledStickersPath = Bundle.main.resourcePath.map({ URL(fileURLWithPath: $0).appendingPathComponent("Stickers") }),
+              fileManager.fileExists(atPath: bundledStickersPath.path) else {
+            print("ℹ️ No bundled stickers found in app bundle")
+            return
+        }
+        
+        do {
+            let bundledFiles = try fileManager.contentsOfDirectory(at: bundledStickersPath, includingPropertiesForKeys: nil)
+            var copiedCount = 0
+            
+            for file in bundledFiles {
+                let ext = file.pathExtension.lowercased()
+                guard ["png", "jpg", "jpeg", "svg"].contains(ext) else { continue }
+                
+                let destURL = userDirectory.appendingPathComponent(file.lastPathComponent)
+                if !fileManager.fileExists(atPath: destURL.path) {
+                    try fileManager.copyItem(at: file, to: destURL)
+                    copiedCount += 1
+                }
+            }
+            
+            // 创建 marker 文件
+            try "".write(to: markerFile, atomically: true, encoding: .utf8)
+            print("✅ Copied \(copiedCount) bundled stickers to user directory")
+        } catch {
+            print("❌ Failed to copy bundled stickers: \(error)")
+        }
     }
     
     // MARK: - Favorites Management

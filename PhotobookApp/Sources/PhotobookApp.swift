@@ -2,6 +2,9 @@ import SwiftUI
 import AppKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var windowObserver: NSObjectProtocol?
+    private let windowAutosaveName = "PhotobookProMainWindow"
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Critical: Tell the OS we are a regular GUI app with an icon in the Dock
         // This is strictly required for process launched via 'swift run' or binary to receive keyboard focus
@@ -10,27 +13,97 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Force activation
         NSApp.activate(ignoringOtherApps: true)
         
-        // Restore window frame after a longer delay to ensure window is fully created
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if let window = NSApp.windows.first {
-                self.restoreWindowFrame(window)
-                window.makeKeyAndOrderFront(nil)
-            } else {
-                // Try again if window not ready
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    if let window = NSApp.windows.first {
-                        self.restoreWindowFrame(window)
-                        window.makeKeyAndOrderFront(nil)
-                    }
+        // Setup window after a short delay to ensure it's created
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.setupMainWindow()
+        }
+        
+        // Also observe for new windows in case the first attempt fails
+        windowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let window = notification.object as? NSWindow,
+                  window.frameAutosaveName.isEmpty else { return }
+            
+            self.configureWindow(window)
+        }
+    }
+    
+    private func setupMainWindow() {
+        if let window = NSApp.windows.first(where: { $0.isKeyWindow || $0.isMainWindow }) ?? NSApp.windows.first {
+            configureWindow(window)
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    private func configureWindow(_ window: NSWindow) {
+        // 使用 NSWindow 原生的 frameAutosaveName 实现自动保存/恢复
+        // 这是 macOS 推荐的方式，会自动持久化窗口位置和大小
+        if !window.setFrameAutosaveName(windowAutosaveName) {
+            // If autosave name already set, manually restore
+            print("ℹ️ Window autosave name already in use")
+        }
+        
+        // 恢复之前手动保存的 frame（作为备份）
+        let defaults = UserDefaults.standard
+        if let frameString = defaults.string(forKey: "PhotobookPro.MainWindowFrame") {
+            let frame = NSRectFromString(frameString)
+            if frame != .zero && frame.width > 200 && frame.height > 200 {
+                // 检查 frame 是否在屏幕范围内
+                if let screen = NSScreen.main, screen.visibleFrame.intersects(frame) {
+                    window.setFrame(frame, display: true, animate: false)
+                    print("📐 Restored window frame from UserDefaults: \(Int(frame.width))x\(Int(frame.height))")
                 }
             }
+        } else {
+            // 设置合理的默认大小（居中显示）
+            if let screen = NSScreen.main {
+                let screenFrame = screen.visibleFrame
+                let defaultWidth: CGFloat = min(1400, screenFrame.width * 0.9)
+                let defaultHeight: CGFloat = min(900, screenFrame.height * 0.9)
+                let originX = screenFrame.origin.x + (screenFrame.width - defaultWidth) / 2
+                let originY = screenFrame.origin.y + (screenFrame.height - defaultHeight) / 2
+                let defaultFrame = NSRect(x: originX, y: originY, width: defaultWidth, height: defaultHeight)
+                window.setFrame(defaultFrame, display: true, animate: false)
+                print("📐 Using default frame: \(Int(defaultWidth))x\(Int(defaultHeight))")
+            }
         }
+        
+        // 注册窗口大小/位置变化监听器
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResize(_:)),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidMove(_:)),
+            name: NSWindow.didMoveNotification,
+            object: window
+        )
+    }
+    
+    @objc private func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        saveWindowFrame(window)
+    }
+    
+    @objc private func windowDidMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        saveWindowFrame(window)
     }
     
     func applicationWillTerminate(_ notification: Notification) {
         // Save window frame before closing
         if let window = NSApp.windows.first {
             saveWindowFrame(window)
+        }
+        if let observer = windowObserver {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
     
@@ -44,44 +117,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func saveWindowFrame(_ window: NSWindow) {
         let frame = window.frame
+        // 忽略太小的窗口（可能是最小化状态）
+        guard frame.width > 200 && frame.height > 200 else { return }
+        
         let frameString = NSStringFromRect(frame)
         
-        // 使用固定的suite name确保数据持久化
         let defaults = UserDefaults.standard
         defaults.set(frameString, forKey: "PhotobookPro.MainWindowFrame")
         defaults.synchronize()
         
-        print("💾 Saved window frame: \(frameString)")
-        print("   Width: \(frame.width), Height: \(frame.height)")
-        print("   Origin: x=\(frame.origin.x), y=\(frame.origin.y)")
-        
-        // 验证保存
-        if let saved = defaults.string(forKey: "PhotobookPro.MainWindowFrame") {
-            print("✅ Verified saved: \(saved)")
-        } else {
-            print("❌ Failed to save!")
-        }
-    }
-    
-    private func restoreWindowFrame(_ window: NSWindow) {
-        let defaults = UserDefaults.standard
-        
-        if let frameString = defaults.string(forKey: "PhotobookPro.MainWindowFrame") {
-            let frame = NSRectFromString(frameString)
-            if frame != .zero && frame.width > 100 && frame.height > 100 {
-                window.setFrame(frame, display: true, animate: false)
-                print("📐 Restored window frame: \(frameString)")
-                print("   Width: \(frame.width), Height: \(frame.height)")
-            } else {
-                print("⚠️ Invalid saved frame: \(frameString)")
-            }
-        } else {
-            print("ℹ️ No saved window frame found")
-            // 设置一个合理的默认大小
-            let defaultFrame = NSRect(x: 100, y: 100, width: 1400, height: 900)
-            window.setFrame(defaultFrame, display: true, animate: false)
-            print("📐 Using default frame: \(NSStringFromRect(defaultFrame))")
-        }
+        // 只在调试时输出日志
+        #if DEBUG
+        print("💾 Saved window frame: \(Int(frame.width))x\(Int(frame.height))")
+        #endif
     }
 }
 
@@ -94,7 +142,6 @@ struct PhotobookApp: App {
     @State private var bookContext = BookContext()
     @State private var editorState = EditorState()
     @State private var saveThrottle: Date?
-    @State private var windowFrameObserver: NSObjectProtocol?
     @Environment(\.scenePhase) private var scenePhase
     
     // Project routing state
@@ -126,21 +173,6 @@ struct PhotobookApp: App {
                     .onChange(of: scenePhase) { _, newPhase in
                         if newPhase == .background || newPhase == .inactive {
                             saveCurrentProject()
-                            // Save window frame when app goes to background
-                            if let window = NSApp.windows.first {
-                                saveWindowFrame(window)
-                            }
-                        }
-                    }
-                    .onAppear {
-                        // Setup window frame observer
-                        setupWindowFrameObserver()
-                        // 不再在这里恢复窗口大小，只在app启动时恢复一次
-                    }
-                    .onDisappear {
-                        // Cleanup observer
-                        if let observer = windowFrameObserver {
-                            NotificationCenter.default.removeObserver(observer)
                         }
                     }
                 }
@@ -296,58 +328,5 @@ struct PhotobookApp: App {
         )
     }
     
-    // MARK: - Window Frame Persistence
-    
-    private func setupWindowFrameObserver() {
-        // Observe window frame changes and save periodically
-        windowFrameObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: nil,
-            queue: .main
-        ) { [self] notification in
-            if let window = notification.object as? NSWindow {
-                // Debounce: only save after user stops resizing
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.saveWindowFrame(window)
-                }
-            }
-        }
-        
-        // Also observe window move
-        _ = NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification,
-            object: nil,
-            queue: .main
-        ) { [self] notification in
-            if let window = notification.object as? NSWindow {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.saveWindowFrame(window)
-                }
-            }
-        }
-    }
-    
-    private func saveWindowFrame(_ window: NSWindow) {
-        let frame = window.frame
-        let frameString = NSStringFromRect(frame)
-        
-        let defaults = UserDefaults.standard
-        defaults.set(frameString, forKey: "PhotobookPro.MainWindowFrame")
-        defaults.synchronize()
-        
-        print("💾 Saved window frame (from observer): \(frameString)")
-    }
-    
-    private func restoreWindowFrameIfNeeded(_ window: NSWindow) {
-        let defaults = UserDefaults.standard
-        
-        if let frameString = defaults.string(forKey: "PhotobookPro.MainWindowFrame") {
-            let frame = NSRectFromString(frameString)
-            if frame != .zero && frame.width > 100 && frame.height > 100 {
-                // 总是恢复保存的窗口大小
-                window.setFrame(frame, display: true, animate: false)
-                print("📐 Restored window frame (from MainLayoutView): \(frameString)")
-            }
-        }
-    }
+    // Window frame persistence is now handled by AppDelegate
 }
