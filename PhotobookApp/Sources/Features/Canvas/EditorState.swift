@@ -39,7 +39,7 @@ public class EditorState {
     // MARK: - Bleed Guide (Phase 3)
     
     /// Whether to show the bleed guide overlay on canvas
-    public var showBleedGuide: Bool = false
+    public var showBleedGuide: Bool = true
     
     /// Bleed margin in millimeters (3mm is print industry standard)
     public var bleedMM: CGFloat = 3.0
