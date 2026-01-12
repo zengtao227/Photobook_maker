@@ -20,14 +20,17 @@ struct LibraryPanel: View {
                     .environmentObject(photoStore)
             }
             .focused($isFocused)
+            .focusable()
             .onAppear { isFocused = true }
-            .onKeyPress(keys: [.init("a")], phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) {
+            .contentShape(Rectangle())
+            .onTapGesture { isFocused = true }
+            .background(
+                Button("") {
                     photoStore.selectAll()
-                    return .handled
                 }
-                return .ignored
-            }
+                .keyboardShortcut("a", modifiers: .command)
+                .opacity(0)
+            )
     }
 
     var photoLibraryContent: some View {

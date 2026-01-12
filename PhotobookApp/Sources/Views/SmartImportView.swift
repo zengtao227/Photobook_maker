@@ -222,17 +222,37 @@ struct SmartImportView: View {
         HStack(spacing: 0) {
             // Left: Validated Groups
             VStack(alignment: .leading) {
-                Text("智能分组建议")
-                    .font(.headline)
-                    .padding(.bottom, 10)
-                
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
-                        ForEach(detectedEvents) { group in
-                            GroupCard(group: group)
+                HStack {
+                    Text("智能分组建议")
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    if selectedGroupForEdit != nil {
+                        Button("完成编辑") {
+                            selectedGroupForEdit = nil
                         }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                     }
-                    .padding(.horizontal)
+                }
+                .padding(.bottom, 10)
+                
+                if let selectedGroup = selectedGroupForEdit {
+                    // Edit mode - show photo grid for selected group
+                    groupEditView(group: selectedGroup)
+                } else {
+                    // Normal mode - show all groups
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 15) {
+                            ForEach(detectedEvents) { group in
+                                GroupCard(group: group, onEdit: {
+                                    selectedGroupForEdit = group
+                                })
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
                 }
             }
             .frame(width: 550)
@@ -257,6 +277,112 @@ struct SmartImportView: View {
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
         }
+        .focusable()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Take focus
+        }
+        .onKeyPress(keys: [.init("a")], phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command), let group = selectedGroupForEdit {
+                selectedPhotosInGroup = Set(group.photos.map { $0.id })
+                return .handled
+            }
+            return .ignored
+        }
+    }
+    
+    // MARK: - Group Edit View
+    
+    @State private var selectedGroupForEdit: PhotoGroup?
+    @State private var selectedPhotosInGroup: Set<UUID> = []
+    
+    private func groupEditView(group: PhotoGroup) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Group info
+            HStack {
+                Text(group.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text("(\(group.photoCount) 张)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                if !selectedPhotosInGroup.isEmpty {
+                    Button(role: .destructive) {
+                        removeSelectedPhotos(from: group)
+                    } label: {
+                        Label("删除选中 (\(selectedPhotosInGroup.count))", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.horizontal)
+            
+            // Photo grid
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
+                    ForEach(group.photos) { photo in
+                        photoThumbnailInGroup(photo: photo, group: group)
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+    
+    private func photoThumbnailInGroup(photo: Photo, group: PhotoGroup) -> some View {
+        let isSelected = selectedPhotosInGroup.contains(photo.id)
+        
+        return ZStack(alignment: .topTrailing) {
+            AsyncImage(url: photo.url) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.gray.opacity(0.3)
+            }
+            .frame(width: 80, height: 80)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
+            )
+            
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.blue)
+                    .background(Circle().fill(Color.white))
+                    .padding(4)
+            }
+        }
+        .onTapGesture {
+            if isSelected {
+                selectedPhotosInGroup.remove(photo.id)
+            } else {
+                selectedPhotosInGroup.insert(photo.id)
+            }
+        }
+    }
+    
+    private func removeSelectedPhotos(from group: PhotoGroup) {
+        guard let groupIndex = detectedEvents.firstIndex(where: { $0.id == group.id }) else { return }
+        
+        // Remove photos from group
+        var updatedGroup = group
+        updatedGroup.photos.removeAll { selectedPhotosInGroup.contains($0.id) }
+        
+        // Update the group
+        if updatedGroup.photos.isEmpty {
+            // Remove empty group
+            detectedEvents.remove(at: groupIndex)
+            selectedGroupForEdit = nil
+        } else {
+            detectedEvents[groupIndex] = updatedGroup
+            selectedGroupForEdit = updatedGroup
+        }
+        
+        selectedPhotosInGroup.removeAll()
     }
     
     private var layoutConfigurationView: some View {
@@ -602,6 +728,7 @@ struct ImportSourceButton: View {
 
 struct GroupCard: View {
     let group: PhotoGroup
+    let onEdit: () -> Void
     
     var body: some View {
         HStack {
@@ -629,8 +756,15 @@ struct GroupCard: View {
             
             Spacer()
             
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.blue)
+            Button {
+                onEdit()
+            } label: {
+                Image(systemName: "pencil.circle")
+                    .font(.title3)
+                    .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+            .help("编辑此分组")
         }
         .padding()
         .background(Color(NSColor.controlBackgroundColor))
