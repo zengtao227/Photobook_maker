@@ -2,14 +2,22 @@ import SwiftUI
 
 struct LibraryPanel: View {
     @Environment(ThemeManager.self) private var themeManager
-    @EnvironmentObject var photoStore: PhotoStore // Connect to real data
+    @Environment(EditorState.self) private var editorState
+    @Environment(BookContext.self) private var bookContext
+    @EnvironmentObject var photoStore: PhotoStore
     
-    // Restored missing state variables
     @State private var searchText = ""
     @State private var expandedMonths: Set<String> = []
+    @State private var showSmartImport = false
     
     var body: some View {
         photoLibraryContent
+            .sheet(isPresented: $showSmartImport) {
+                SmartImportView(isPresented: $showSmartImport)
+                    .environment(editorState)
+                    .environment(bookContext)
+                    .environmentObject(photoStore)
+            }
     }
 
     var photoLibraryContent: some View {
@@ -20,11 +28,20 @@ struct LibraryPanel: View {
                     .font(.headline)
                     .foregroundColor(themeManager.theme.textColor)
                 Spacer()
-                Button(action: { photoStore.showFolderPicker = true }) {
-                    Image(systemName: "folder.badge.plus") // Changed icon to folder
+                
+                // Smart Import Button
+                Button(action: { showSmartImport = true }) {
+                    Image(systemName: "brain")
                         .foregroundColor(themeManager.theme.accentColor)
                 }
-                .help("Import Folder") // Tooltip clarification
+                .help("智能导入 / Smart Import")
+                .buttonStyle(.plain)
+                
+                Button(action: { photoStore.showFolderPicker = true }) {
+                    Image(systemName: "folder.badge.plus")
+                        .foregroundColor(themeManager.theme.accentColor)
+                }
+                .help("Import Folder")
             }
             .padding(.horizontal)
             .padding(.bottom, 8)
@@ -71,11 +88,21 @@ struct LibraryPanel: View {
             Text("Click + to import a folder")
                 .font(.caption)
                 .foregroundColor(themeManager.theme.secondaryTextColor)
-            Button("Import Photos") {
-                photoStore.showFolderPicker = true
+            
+            HStack(spacing: 12) {
+                Button("Import Photos") {
+                    photoStore.showFolderPicker = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(themeManager.theme.accentColor)
+                
+                Button {
+                    showSmartImport = true
+                } label: {
+                    Label("智能导入", systemImage: "brain")
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(themeManager.theme.accentColor)
             .padding(.top)
             Spacer()
         }
@@ -128,8 +155,8 @@ struct PhotoThumnailView: View {
         photoStore.selectedPhotos.contains(where: { $0.id == photo.id })
     }
     
-    // Calculate aspect ratio from metadata
-    var aspectRatio: CGFloat {
+    // Calculate aspect ratio from photo metadata
+    private var photoAspectRatio: CGFloat {
         if let w = photo.width, let h = photo.height, w > 0, h > 0 {
             return CGFloat(w) / CGFloat(h)
         }
@@ -142,19 +169,30 @@ struct PhotoThumnailView: View {
             if let thumbnail = photo.thumbnailImage {
                 Image(nsImage: thumbnail)
                     .resizable()
-                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 100, maxHeight: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             } else {
                 AsyncImage(url: photo.url) { phase in
                     switch phase {
                     case .empty:
-                        Rectangle().fill(themeManager.theme.searchFieldColor)
+                        Rectangle()
+                            .fill(themeManager.theme.searchFieldColor)
+                            .aspectRatio(1, contentMode: .fit)
+                            .frame(maxWidth: 100, maxHeight: 100)
                     case .success(let image):
-                        image.resizable().aspectRatio(aspectRatio, contentMode: .fit)
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: 100, maxHeight: 100)
                     case .failure:
-                        Rectangle().fill(Color.red.opacity(0.1))
-                        Image(systemName: "exclamationmark.triangle")
+                        ZStack {
+                            Rectangle().fill(Color.red.opacity(0.1))
+                            Image(systemName: "exclamationmark.triangle")
+                        }
+                        .aspectRatio(1, contentMode: .fit)
+                        .frame(maxWidth: 100, maxHeight: 100)
                     @unknown default:
                         EmptyView()
                     }
@@ -162,7 +200,7 @@ struct PhotoThumnailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
-        .frame(minHeight: 60) // Minimum height for very wide images
+        .frame(minWidth: 60, minHeight: 60)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(isSelected ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
@@ -181,11 +219,17 @@ struct PhotoThumnailView: View {
         }
         // Drag Support
         .draggable(photo.url) {
-            Image(nsImage: photo.thumbnailImage ?? NSImage())
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 80, height: 80)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+            if let thumbnail = photo.thumbnailImage {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 60, maxHeight: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 60, height: 60)
+            }
         }
     }
 }

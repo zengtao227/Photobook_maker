@@ -10,30 +10,22 @@ class EXIFReader {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return nil
         }
-
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] else {
             return nil
         }
-
-        // Try EXIF date first
         if let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any],
            let dateString = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
             return parseExifDate(dateString)
         }
-
-        // Try TIFF date
         if let tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any],
            let dateString = tiff[kCGImagePropertyTIFFDateTime as String] as? String {
             return parseExifDate(dateString)
         }
-
-        // Fallback to file modification date
         let fileManager = FileManager.default
         if let attributes = try? fileManager.attributesOfItem(atPath: url.path),
            let modDate = attributes[.modificationDate] as? Date {
             return modDate
         }
-
         return nil
     }
 
@@ -42,18 +34,26 @@ class EXIFReader {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return nil
         }
-
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] else {
             return nil
         }
-
         var metadata = PhotoMetadata()
-
-        // Image dimensions
-        metadata.width = properties[kCGImagePropertyPixelWidth as String] as? Int
-        metadata.height = properties[kCGImagePropertyPixelHeight as String] as? Int
-
-        // EXIF data
+        
+        // Get raw dimensions
+        let rawWidth = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0
+        let rawHeight = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0
+        
+        // Check EXIF orientation and swap dimensions if needed
+        let orientation = properties[kCGImagePropertyOrientation as String] as? Int ?? 1
+        // Orientations 5-8 have width/height swapped
+        if orientation >= 5 && orientation <= 8 {
+            metadata.width = rawHeight
+            metadata.height = rawWidth
+        } else {
+            metadata.width = rawWidth
+            metadata.height = rawHeight
+        }
+        
         if let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any] {
             if let dateString = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
                 metadata.dateTaken = parseExifDate(dateString)
@@ -63,14 +63,10 @@ class EXIFReader {
             metadata.isoSpeed = (exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int])?.first
             metadata.focalLength = exif[kCGImagePropertyExifFocalLength as String] as? Double
         }
-
-        // TIFF data (camera info)
         if let tiff = properties[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
             metadata.cameraMake = tiff[kCGImagePropertyTIFFMake as String] as? String
             metadata.cameraModel = tiff[kCGImagePropertyTIFFModel as String] as? String
         }
-
-        // GPS data
         if let gps = properties[kCGImagePropertyGPSDictionary as String] as? [String: Any] {
             if let lat = gps[kCGImagePropertyGPSLatitude as String] as? Double,
                let latRef = gps[kCGImagePropertyGPSLatitudeRef as String] as? String,
@@ -81,19 +77,31 @@ class EXIFReader {
                 metadata.location = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
             }
         }
-
         return metadata
     }
 
-    /// Parse EXIF date string format: "2024:01:15 14:30:00"
     private func parseExifDate(_ dateString: String) -> Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
         return formatter.date(from: dateString)
     }
+    
+    /// Convert coordinates to a human-readable location name
+    func reverseGeocode(location: CLLocationCoordinate2D) async -> String? {
+        let geocoder = CLGeocoder()
+        let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
+        do {
+            let placemarks = try await geocoder.reverseGeocodeLocation(loc)
+            if let placemark = placemarks.first {
+                return placemark.locality ?? placemark.name ?? placemark.country
+            }
+        } catch {
+            print("❌ Reverse geocoding failed: \(error.localizedDescription)")
+        }
+        return nil
+    }
 }
 
-/// Photo metadata structure
 struct PhotoMetadata {
     var width: Int?
     var height: Int?
@@ -115,19 +123,12 @@ struct PhotoMetadata {
 
     var exposureDescription: String? {
         var parts: [String] = []
-        if let f = fNumber {
-            parts.append("f/\(String(format: "%.1f", f))")
-        }
+        if let f = fNumber { parts.append("f/\(String(format: "%.1f", f))") }
         if let exp = exposureTime {
-            if exp >= 1 {
-                parts.append("\(String(format: "%.1f", exp))s")
-            } else {
-                parts.append("1/\(Int(1/exp))s")
-            }
+            if exp >= 1 { parts.append("\(String(format: "%.1f", exp))s") }
+            else { parts.append("1/\(Int(1/exp))s") }
         }
-        if let iso = isoSpeed {
-            parts.append("ISO \(iso)")
-        }
+        if let iso = isoSpeed { parts.append("ISO \(iso)") }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 }

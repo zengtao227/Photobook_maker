@@ -12,7 +12,7 @@ class PDFExporter {
         pageSize: PageSize,
         margin: CGFloat = 10  // Points
     ) async {
-        await withCheckedContinuation { continuation in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 let pdfDocument = PDFDocument()
                 let size = pageSize.sizeInPoints

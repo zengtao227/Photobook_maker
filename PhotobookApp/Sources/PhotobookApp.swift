@@ -177,12 +177,15 @@ struct PhotobookApp: App {
                     }
                 }
             }
+            // Ensure the window content fills available space and is resizable
+            .frame(minWidth: 1000, minHeight: 700)
             .onAppear {
                 // Secondary check to force focus when view appears
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
         .windowStyle(.automatic)
+        .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("新建项目") {

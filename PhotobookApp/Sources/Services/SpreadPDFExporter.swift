@@ -269,13 +269,9 @@ public class SpreadPDFExporter {
         
         // Set document attributes
         // Note: PDFKit has limited metadata support, but we can set basic info
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let dateString = dateFormatter.string(from: Date())
-        
         // Create metadata dictionary
         // These are standard PDF metadata keys
-        var attributes: [PDFDocumentAttribute: Any] = [
+        let attributes: [PDFDocumentAttribute: Any] = [
             .titleAttribute: "Photobook - 双面打印",
             .authorAttribute: "PhotobookPro",
             .subjectAttribute: "双面打印 (Duplex: Long-Edge Flip)",

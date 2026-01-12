@@ -49,10 +49,17 @@ struct SelectedPhotosView: View {
                                 .frame(width: 30)
 
                             if let thumbnail = photo.thumbnailImage {
+                                let aspectRatio: CGFloat = {
+                                    if let w = photo.width, let h = photo.height, w > 0, h > 0 {
+                                        return CGFloat(w) / CGFloat(h)
+                                    }
+                                    return 1.0
+                                }()
                                 Image(nsImage: thumbnail)
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                                    .aspectRatio(aspectRatio, contentMode: .fit)
                                     .frame(width: 60, height: 60)
+                                    .background(Color.secondary.opacity(0.1))
                                     .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
 
@@ -105,13 +112,12 @@ struct SelectedPhotosView: View {
     }
 }
 
-// Make PageSize conform to Hashable for Picker
 extension PageSize: Hashable {
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(displayName)
     }
 
-    static func == (lhs: PageSize, rhs: PageSize) -> Bool {
+    public static func == (lhs: PageSize, rhs: PageSize) -> Bool {
         lhs.displayName == rhs.displayName
     }
 }

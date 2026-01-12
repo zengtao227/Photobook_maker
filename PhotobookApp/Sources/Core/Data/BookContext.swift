@@ -1,6 +1,10 @@
 import Foundation
+import SwiftUI
+import Observation
 
-public enum BookPageSize: String, CaseIterable, Identifiable, Codable {
+public typealias PageSize = BookPageSize
+
+public enum BookPageSize: String, CaseIterable, Identifiable, Codable, Sendable {
     case a4Landscape = "A4 Landscape"
     case a5Landscape = "A5 Landscape"
     case a6Landscape = "A6 Landscape"
@@ -31,10 +35,13 @@ public enum BookPageSize: String, CaseIterable, Identifiable, Codable {
             height: mm.height * 2.83465
         )
     }
+    
+    /// Alias for dimensionsInPoints for compatibility
+    public var points: CGSize { dimensionsInPoints }
+    public var sizeInPoints: CGSize { dimensionsInPoints }
+    
+    public var displayName: String { rawValue }
 }
-
-import SwiftUI
-import Observation
 
 @Observable
 public class BookContext {

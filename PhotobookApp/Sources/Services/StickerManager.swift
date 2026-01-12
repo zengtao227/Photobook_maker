@@ -4,6 +4,7 @@ import Observation
 
 /// 管理自定义贴纸的服务
 @Observable
+@MainActor
 public class StickerManager {
     public var customStickers: [CustomSticker] = []
     public var favoriteStickers: [FavoriteSticker] = []

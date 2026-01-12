@@ -17,86 +17,213 @@ struct CropEditor: View {
     @State private var cropRect: CGRect = .zero
     @State private var rotationAngle: Double = 0.0
     @State private var isReady: Bool = false
+    @State private var loadError: Bool = false
     
     var body: some View {
-        ZStack {
-            Color.black.edgesIgnoringSafeArea(.all)
-            
-            if let image = NSImage(contentsOf: layer.photoUrl) {
-                VStack(spacing: 0) {
-                    // Header
-                    HStack {
-                        Text("裁剪与调整")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Spacer()
-                        if isReady {
-                            Text("\(Int(cropRect.width)) x \(Int(cropRect.height))")
-                                .font(.caption.monospacedDigit())
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding()
-                    
-                    // Main Area
-                    ZStack {
-                        // Image Base
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .rotationEffect(.degrees(rotationAngle))
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear
-                                        .onAppear { initialize(size: geo.size) }
-                                        .onChange(of: geo.size) { _, newSize in initialize(size: newSize) }
-                                }
-                            )
-                            .padding(60)
-                        
-                        // Interaction Layers
-                        if isReady && imageSize.width > 0 {
-                            CropOverlayView(cropRect: $cropRect, imageSize: imageSize)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    
-                    // Controls
-                    VStack(spacing: 20) {
-                        HStack {
-                            Image(systemName: "rotate.left")
-                            Slider(value: $rotationAngle, in: -180...180)
-                            Image(systemName: "rotate.right")
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 40)
-                        
-                        HStack {
-                            Button("取消", action: onCancel)
-                                .foregroundColor(.white)
-                            Spacer()
-                            Button("重置") {
-                                withAnimation {
-                                    cropRect = CGRect(origin: .zero, size: imageSize)
-                                    rotationAngle = 0
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                if loadError {
+                    errorView
+                } else if let image = NSImage(contentsOf: layer.photoUrl) {
+                    mainContent(image: image, geometry: geometry)
+                } else {
+                    loadingView
+                        .onAppear {
+                            // 延迟检查加载失败
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                if !isReady {
+                                    loadError = true
                                 }
                             }
-                            .foregroundColor(.yellow)
-                            Spacer()
-                            Button(action: commit) {
-                                Text("完成裁剪").fontWeight(.bold)
-                            }
-                            .buttonStyle(.borderedProminent)
                         }
-                        .padding()
-                    }
-                    .background(Color.black.opacity(0.8))
                 }
-            } else {
-                Text("无法加载图片").foregroundColor(.white)
             }
         }
-        .frame(minWidth: 900, minHeight: 700)
+        .frame(minWidth: 800, minHeight: 600)
+    }
+    
+    @ViewBuilder
+    private func mainContent(image: NSImage, geometry: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            // Fixed Header with close button
+            HStack {
+                Button(action: onCancel) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                        Text("关闭")
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.15))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+                
+                Spacer()
+                
+                Text("裁剪与调整")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                if isReady {
+                    Text("\(Int(cropRect.width)) × \(Int(cropRect.height))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.white.opacity(0.7))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(6)
+                }
+            }
+            .padding()
+            .background(Color.black.opacity(0.8))
+            
+            // Main editing area
+            ZStack {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .rotationEffect(.degrees(rotationAngle))
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .onAppear { initialize(size: geo.size) }
+                                .onChange(of: geo.size) { _, newSize in 
+                                    if !isReady {
+                                        initialize(size: newSize) 
+                                    }
+                                }
+                        }
+                    )
+                    .padding(60)
+                
+                if isReady && imageSize.width > 0 {
+                    CropOverlayView(cropRect: $cropRect, imageSize: imageSize)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Fixed bottom controls
+            VStack(spacing: 16) {
+                // Rotation slider
+                HStack(spacing: 12) {
+                    Image(systemName: "rotate.left")
+                        .foregroundColor(.white)
+                    Slider(value: $rotationAngle, in: -180...180)
+                        .tint(.white)
+                    Image(systemName: "rotate.right")
+                        .foregroundColor(.white)
+                    Text("\(Int(rotationAngle))°")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 40)
+                }
+                .padding(.horizontal, 40)
+                
+                // Action buttons - always visible
+                HStack(spacing: 16) {
+                    // Cancel button
+                    Button(action: onCancel) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "xmark")
+                            Text("取消")
+                        }
+                        .frame(minWidth: 100)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.15))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.escape, modifiers: [])
+                    
+                    // Reset button
+                    Button {
+                        withAnimation {
+                            cropRect = CGRect(origin: .zero, size: imageSize)
+                            rotationAngle = 0
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("重置")
+                        }
+                        .frame(minWidth: 100)
+                        .padding(.vertical, 12)
+                        .background(Color.yellow.opacity(0.2))
+                        .foregroundColor(.yellow)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Done button
+                    Button(action: commit) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark")
+                            Text("完成")
+                        }
+                        .frame(minWidth: 120)
+                        .fontWeight(.semibold)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.return, modifiers: [])
+                }
+                .padding(.horizontal, 24)
+            }
+            .padding(.vertical, 20)
+            .background(Color.black.opacity(0.9))
+        }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .tint(.white)
+            Text("正在加载图片...")
+                .foregroundColor(.white)
+        }
+    }
+    
+    private var errorView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.yellow)
+            
+            Text("无法加载图片")
+                .font(.title2)
+                .foregroundColor(.white)
+            
+            Text("图片文件可能已损坏或不存在")
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.7))
+            
+            Button(action: onCancel) {
+                HStack {
+                    Image(systemName: "xmark")
+                    Text("关闭")
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.2))
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.escape, modifiers: [])
+        }
     }
     
     private func initialize(size: CGSize) {
@@ -123,6 +250,8 @@ struct CropEditor: View {
     }
     
     private func commit() {
+        guard isReady else { return }
+        
         // Calculate Normalized Rect for Persistence
         let normX = cropRect.minX / imageSize.width
         let normY = cropRect.minY / imageSize.height

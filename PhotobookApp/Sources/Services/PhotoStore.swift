@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 import AppKit
+import Vision
+import CoreLocation
 
 /// Main data store for the app
 @MainActor
@@ -11,8 +13,10 @@ class PhotoStore: ObservableObject {
     @Published var showFolderPicker = false
     @Published var isLoading = false
     @Published var loadingProgress: Double = 0
+    @Published var events: [PhotoEvent] = []
 
     private let exifReader = EXIFReader()
+    private let groupingService = SmartGroupingService()
 
     /// Import photos from folders or files
     func importFiles(_ urls: [URL]) async {
@@ -177,53 +181,49 @@ class PhotoStore: ObservableObject {
         return (width, height)
     }
 
-    /// Load a single photo with EXIF data
+    /// Load a single photo with full AI metadata
     private func loadPhoto(from url: URL) async -> Photo {
-        let dateTaken = exifReader.getDateTaken(from: url)
         let thumbnail = await generateThumbnail(from: url)
         
-        var width: Int?
-        var height: Int?
-        
-        // Use ImageIO directly as it's the most reliable way to get metadata without loading the file
-        if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
-            
-            // Safe extraction using NSNumber for broad type compatibility
-            let rawW = (properties[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue ?? 0
-            let rawH = (properties[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue ?? 0
-            let orientation = (properties[kCGImagePropertyOrientation as String] as? NSNumber)?.intValue ?? 1
-            
-            // Orientations 5-8 mean image is rotated 90 or 270 degrees
-            if orientation >= 5 && orientation <= 8 {
-                width = rawH
-                height = rawW
-            } else {
-                width = rawW
-                height = rawH
-            }
+        // Extract basic metadata
+        guard let metadata = exifReader.getAllMetadata(from: url) else {
+            return Photo(url: url, thumbnailImage: thumbnail)
         }
         
-        // Fallback if ImageIO failed or returned 0 dimensions
-        if width == nil || height == nil || width == 0 || height == 0 {
-             if let image = NSImage(contentsOf: url) {
-                 // NSImage size is in points, but ratio is what matters. 
-                 // If we want pixels, we'd need representations, but for ratio, size is fine.
-                 if let rep = image.representations.first {
-                     width = rep.pixelsWide
-                     height = rep.pixelsHigh
-                 } else {
-                     width = Int(image.size.width)
-                     height = Int(image.size.height)
-                 }
-            }
+        var photo = Photo(url: url, dateTaken: metadata.dateTaken, thumbnailImage: thumbnail)
+        photo.width = metadata.width
+        photo.height = metadata.height
+        photo.cameraModel = metadata.cameraDescription
+        
+        // Geocoding
+        if let coordinate = metadata.location {
+            photo.latitude = coordinate.latitude
+            photo.longitude = coordinate.longitude
+            photo.locationName = await exifReader.reverseGeocode(location: coordinate)
         }
         
-        var photo = Photo(url: url, dateTaken: dateTaken, thumbnailImage: thumbnail)
-        photo.width = width
-        photo.height = height
-        print("DEBUG: Loaded photo \(url.lastPathComponent), size: \(width ?? 0)x\(height ?? 0)") // Debug log
+        // Vision Analysis
+        photo.sceneLabel = await analyzeScene(from: url)
+        
+        print("DEBUG: Loaded photo \(url.lastPathComponent) with scene: \(photo.sceneLabel ?? "none")")
         return photo
+    }
+    
+    /// Use Vision to classify the image scene
+    private func analyzeScene(from url: URL) async -> String? {
+        let request = VNClassifyImageRequest()
+        let handler = VNImageRequestHandler(url: url)
+        
+        do {
+            try handler.perform([request])
+            let results = request.results
+            
+            // Return the highest confidence result that meets threshold
+            return results?.first(where: { $0.confidence > 0.8 })?.identifier
+        } catch {
+            print("❌ Vision analysis failed: \(url.lastPathComponent): \(error.localizedDescription)")
+            return nil
+        }
     }
 
     /// Generate thumbnail for display with proper orientation
@@ -242,7 +242,10 @@ class PhotoStore: ObservableObject {
                     return
                 }
                 
-                let thumbnail = NSImage(cgImage: cgImage, size: .zero)
+                // Create NSImage with proper size based on the CGImage dimensions
+                let width = CGFloat(cgImage.width)
+                let height = CGFloat(cgImage.height)
+                let thumbnail = NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
                 continuation.resume(returning: thumbnail)
             }
         }

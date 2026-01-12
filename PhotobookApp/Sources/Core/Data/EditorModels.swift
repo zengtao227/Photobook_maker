@@ -240,6 +240,25 @@ public struct AnyLayer: Identifiable, Codable {
     public var id: LayerID { layer.id }
     public var layer: any LayerProtocol
     
+    // Expose frame and rotation for direct access
+    public var frame: CGRect {
+        get { layer.frame }
+        set {
+            var mutableLayer = layer
+            mutableLayer.frame = newValue
+            layer = mutableLayer
+        }
+    }
+    
+    public var rotation: Double {
+        get { layer.rotation }
+        set {
+            var mutableLayer = layer
+            mutableLayer.rotation = newValue
+            layer = mutableLayer
+        }
+    }
+    
     public init(_ layer: any LayerProtocol) {
         self.layer = layer
     }
