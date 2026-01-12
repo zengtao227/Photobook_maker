@@ -165,6 +165,19 @@ public enum LocalizedKey {
     case innerSpreadLabel(Int)
     case fullCoverWrap
     
+    // Page Management
+    case pageManagement
+    case movePage
+    case movePageTitle
+    case movePageDescription
+    case fromPage
+    case toPageBefore
+    case enterPageNumber
+    case pageNumberHint(Int, Int)
+    case move
+    case undo
+    case redo
+    
     // Validation
     case pagesValid
     case pagesNeedMore(Int)
@@ -312,6 +325,20 @@ public enum LocalizedKey {
         case .needMorePages(let count): return "需 \(count) 页"
         case .innerSpreadLabel(let index): return "跨页 \(index)"
         case .fullCoverWrap: return "全包封面"
+        
+        // Page Management
+        case .pageManagement: return "页面管理"
+        case .movePage: return "移动页面"
+        case .movePageTitle: return "移动页面"
+        case .movePageDescription: return "将第 m 页移动到第 n 页之前"
+        case .fromPage: return "从第几页"
+        case .toPageBefore: return "移动到第几页之前"
+        case .enterPageNumber: return "输入页码"
+        case .pageNumberHint(let total, let spreads): return "提示：页码从 1 开始，当前共有 \(total) 页（\(spreads) 个跨页）"
+        case .move: return "移动"
+        case .undo: return "撤销"
+        case .redo: return "重做"
+        
         case .exportPDF: return "导出 PDF"
         case .configureExport: return "配置导出选项"
         case .quickPresets: return "快速预设"
@@ -451,6 +478,20 @@ public enum LocalizedKey {
         case .needMorePages(let count): return "Need \(count) pages"
         case .innerSpreadLabel(let index): return "Spread \(index)"
         case .fullCoverWrap: return "Full Cover Wrap"
+        
+        // Page Management
+        case .pageManagement: return "Page Management"
+        case .movePage: return "Move Page"
+        case .movePageTitle: return "Move Page"
+        case .movePageDescription: return "Move page m to before page n"
+        case .fromPage: return "From page"
+        case .toPageBefore: return "To before page"
+        case .enterPageNumber: return "Enter page number"
+        case .pageNumberHint(let total, let spreads): return "Hint: Page numbers start from 1, currently \(total) pages (\(spreads) spreads)"
+        case .move: return "Move"
+        case .undo: return "Undo"
+        case .redo: return "Redo"
+        
         case .exportPDF: return "Export PDF"
         case .configureExport: return "Configure export options"
         case .quickPresets: return "Quick Presets"
@@ -664,6 +705,17 @@ public enum LocalizedKey {
         case .importCustomSticker: return "Benutzerdefinierten Sticker importieren..."
         case .done: return "Fertig"
         case .swapLeftRight: return "Links/Rechts tauschen"
+        case .pageManagement: return "Seitenverwaltung"
+        case .movePage: return "Seite verschieben"
+        case .movePageTitle: return "Seite verschieben"
+        case .movePageDescription: return "Seite m vor Seite n verschieben"
+        case .fromPage: return "Von Seite"
+        case .toPageBefore: return "Bis vor Seite"
+        case .enterPageNumber: return "Seitenzahl eingeben"
+        case .pageNumberHint(let total, let spreads): return "Hinweis: Seitenzahlen beginnen bei 1, derzeit \(total) Seiten (\(spreads) Doppelseiten)"
+        case .move: return "Verschieben"
+        case .undo: return "Rückgängig"
+        case .redo: return "Wiederholen"
         }
     }
     
@@ -729,6 +781,17 @@ public enum LocalizedKey {
         case .needMorePages(let count): return "\(count) pages nécessaires"
         case .innerSpreadLabel(let index): return "Double page \(index)"
         case .fullCoverWrap: return "Couverture complète"
+        case .pageManagement: return "Gestion des pages"
+        case .movePage: return "Déplacer la page"
+        case .movePageTitle: return "Déplacer la page"
+        case .movePageDescription: return "Déplacer la page m avant la page n"
+        case .fromPage: return "De la page"
+        case .toPageBefore: return "Avant la page"
+        case .enterPageNumber: return "Entrer le numéro de page"
+        case .pageNumberHint(let total, let spreads): return "Note : Les numéros de page commencent à 1, actuellement \(total) pages (\(spreads) doubles pages)"
+        case .move: return "Déplacer"
+        case .undo: return "Annuler"
+        case .redo: return "Rétablir"
         case .exportPDF: return "Exporter PDF"
         case .configureExport: return "Configurer les options d'export"
         case .quickPresets: return "Préréglages rapides"
