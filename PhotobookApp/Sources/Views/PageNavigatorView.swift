@@ -7,7 +7,224 @@ struct PageNavigatorView: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(LocalizationManager.self) private var localization
     
+    @State private var showMoveDialog = false
+    @State private var moveFromPage = ""
+    @State private var moveToPage = ""
+    
     var body: some View {
+        VStack(spacing: 0) {
+            // Move spread toolbar
+            moveSpreadToolbar
+            
+            // Main navigator
+            mainNavigator
+        }
+        .frame(height: 140)
+        .sheet(isPresented: $showMoveDialog) {
+            moveSpreadDialog
+        }
+        .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                if keyPress.modifiers.contains(.shift) {
+                    // Cmd+Shift+Z = Redo
+                    if editorState.canRedo {
+                        editorState.redo()
+                        return .handled
+                    }
+                } else {
+                    // Cmd+Z = Undo
+                    if editorState.canUndo {
+                        editorState.undo()
+                        return .handled
+                    }
+                }
+            }
+            return .ignored
+        }
+    }
+    
+    // MARK: - Move Spread Toolbar
+    
+    private var moveSpreadToolbar: some View {
+        HStack(spacing: 12) {
+            Text(localization.localized(.pageManagement))
+                .font(.caption)
+                .foregroundColor(themeManager.theme.secondaryTextColor)
+            
+            // Undo/Redo buttons
+            HStack(spacing: 4) {
+                Button {
+                    editorState.undo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!editorState.canUndo)
+                .help("\(localization.localized(.undo)) (⌘Z)")
+                
+                Button {
+                    editorState.redo()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!editorState.canRedo)
+                .help("\(localization.localized(.redo)) (⌘⇧Z)")
+            }
+            
+            Spacer()
+            
+            Button {
+                showMoveDialog = true
+            } label: {
+                Label(localization.localized(.movePage), systemImage: "arrow.left.arrow.right")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
+        .background(themeManager.theme.panelColor.opacity(0.5))
+    }
+    
+    // MARK: - Move Spread Dialog
+    
+    private var moveSpreadDialog: some View {
+        VStack(spacing: 20) {
+            Text(localization.localized(.movePageTitle))
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text(localization.localized(.movePageDescription))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localization.localized(.fromPage))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField(localization.localized(.enterPageNumber), text: $moveFromPage)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                }
+                
+                Image(systemName: "arrow.right")
+                    .foregroundColor(.secondary)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localization.localized(.toPageBefore))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField(localization.localized(.enterPageNumber), text: $moveToPage)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                }
+            }
+            
+            let totalPages = editorState.spreadCount * 2
+            Text(localization.localized(.pageNumberHint(totalPages, editorState.spreadCount)))
+                .font(.caption2)
+                .foregroundColor(.orange)
+            
+            HStack(spacing: 12) {
+                Button(localization.localized(.cancel)) {
+                    showMoveDialog = false
+                    moveFromPage = ""
+                    moveToPage = ""
+                }
+                .keyboardShortcut(.escape)
+                
+                Button(localization.localized(.move)) {
+                    performMove()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(30)
+        .frame(width: 500)
+    }
+    
+    private func performMove() {
+        guard let fromPageNum = Int(moveFromPage), let toPageNum = Int(moveToPage) else {
+            return
+        }
+        
+        let totalPages = editorState.spreadCount * 2
+        
+        // Validate page numbers
+        guard fromPageNum >= 1 && fromPageNum <= totalPages else {
+            return
+        }
+        guard toPageNum >= 1 && toPageNum <= totalPages + 1 else {
+            return
+        }
+        
+        if fromPageNum == toPageNum {
+            showMoveDialog = false
+            moveFromPage = ""
+            moveToPage = ""
+            return
+        }
+        
+        // Save undo state before making changes
+        editorState.saveUndoState()
+        
+        // Extract all pages as a flat array
+        var allPages: [PageModel] = []
+        for spread in editorState.bookStructure.innerSpreads {
+            allPages.append(spread.left)
+            allPages.append(spread.right)
+        }
+        
+        // Remove the source page
+        let pageToMove = allPages.remove(at: fromPageNum - 1)
+        
+        // Calculate insertion index (adjust if moving forward)
+        var insertIndex = toPageNum - 1
+        if fromPageNum < toPageNum {
+            insertIndex -= 1
+        }
+        
+        // Insert at new position
+        allPages.insert(pageToMove, at: insertIndex)
+        
+        // Rebuild spreads from flat array
+        var newSpreads: [(left: PageModel, right: PageModel)] = []
+        for i in stride(from: 0, to: allPages.count, by: 2) {
+            if i + 1 < allPages.count {
+                newSpreads.append((left: allPages[i], right: allPages[i + 1]))
+            } else {
+                // Odd number of pages - add empty right page
+                newSpreads.append((left: allPages[i], right: PageModel(pageNumber: -99)))
+            }
+        }
+        
+        // Update book structure
+        withAnimation(.spring(response: 0.3)) {
+            editorState.bookStructure.innerSpreads = newSpreads
+            
+            // Navigate to the spread containing the moved page
+            let newSpreadIndex = insertIndex / 2
+            if newSpreadIndex < editorState.spreadCount {
+                editorState.navigateToSpread(newSpreadIndex)
+            }
+        }
+        
+        showMoveDialog = false
+        moveFromPage = ""
+        moveToPage = ""
+    }
+    
+    // MARK: - Main Navigator
+    
+    private var mainNavigator: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
