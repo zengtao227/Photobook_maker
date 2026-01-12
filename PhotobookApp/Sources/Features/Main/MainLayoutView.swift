@@ -183,6 +183,25 @@ struct MainLayoutView: View {
         .environment(localization)
         // Global Theme Transition
         .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
+        // Global Undo/Redo shortcuts
+        .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                if keyPress.modifiers.contains(.shift) {
+                    // Cmd+Shift+Z = Redo
+                    if editorState.canRedo {
+                        editorState.redo()
+                        return .handled
+                    }
+                } else {
+                    // Cmd+Z = Undo
+                    if editorState.canUndo {
+                        editorState.undo()
+                        return .handled
+                    }
+                }
+            }
+            return .ignored
+        }
         // Auto-save on changes
         .onChange(of: editorState.lastModified) { _, _ in
             autoSaveProject()
