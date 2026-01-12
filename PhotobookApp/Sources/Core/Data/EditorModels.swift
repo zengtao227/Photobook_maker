@@ -16,9 +16,8 @@ public struct LayerID: Identifiable, Hashable, Codable {
     public var description: String { id.uuidString }
 }
 
-/// Base properties for any layer on the canvas
 public protocol LayerProtocol: Identifiable, Codable {
-    var id: LayerID { get }
+    var id: LayerID { get set }
     var type: LayerType { get }
     var frame: CGRect { get set }
     var rotation: Double { get set }
@@ -29,7 +28,7 @@ public protocol LayerProtocol: Identifiable, Codable {
 // MARK: - Concrete Layers
 
 public struct PhotoLayer: LayerProtocol {
-    public let id: LayerID
+    public var id: LayerID
     public var type: LayerType = .photo
     public var frame: CGRect
     public var rotation: Double = 0
@@ -118,7 +117,7 @@ public struct PhotoLayer: LayerProtocol {
 }
 
 public struct TextLayer: LayerProtocol {
-    public let id: LayerID
+    public var id: LayerID
     public var type: LayerType = .text
     public var frame: CGRect
     public var rotation: Double = 0
@@ -168,7 +167,7 @@ public struct TextLayer: LayerProtocol {
 
 
 public struct StickerLayer: LayerProtocol {
-    public let id: LayerID
+    public var id: LayerID
     public var type: LayerType = .sticker
     public var frame: CGRect
     public var rotation: Double = 0
@@ -237,7 +236,14 @@ public struct PageModel: Identifiable, Codable {
 
 /// Type-erased wrapper for Codable support
 public struct AnyLayer: Identifiable, Codable {
-    public var id: LayerID { layer.id }
+    public var id: LayerID {
+        get { layer.id }
+        set {
+            var mutableLayer = layer
+            mutableLayer.id = newValue
+            layer = mutableLayer
+        }
+    }
     public var layer: any LayerProtocol
     
     // Expose frame and rotation for direct access

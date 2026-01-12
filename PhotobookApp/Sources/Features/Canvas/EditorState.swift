@@ -39,6 +39,166 @@ public class EditorState {
     public var lastModified: Date = Date()
     public var updateCounter: Int = 0 // Force UI refresh
     
+    // MARK: - Undo/Redo Support
+    
+    private var undoStack: [BookStructure] = []
+    private var redoStack: [BookStructure] = []
+    private let maxUndoSteps = 50
+    
+    // MARK: - Clipboard Support
+    
+    private var clipboard: AnyLayer?
+    
+    public var hasClipboard: Bool {
+        clipboard != nil
+    }
+    
+    /// Cut selected layer to clipboard
+    public func cutSelectedLayer() {
+        guard let id = selectedLayerId else { return }
+        
+        saveUndoState()
+        
+        // Copy to clipboard
+        if let layer = leftPage.layers.first(where: { $0.id == id }) {
+            clipboard = layer
+        } else if let layer = rightPage.layers.first(where: { $0.id == id }) {
+            clipboard = layer
+        }
+        
+        // Delete from page
+        deleteSelectedLayer()
+    }
+    
+    /// Copy selected layer to clipboard
+    public func copySelectedLayer() {
+        guard let id = selectedLayerId else { return }
+        
+        if let layer = leftPage.layers.first(where: { $0.id == id }) {
+            clipboard = layer
+        } else if let layer = rightPage.layers.first(where: { $0.id == id }) {
+            clipboard = layer
+        }
+    }
+    
+    /// Paste layer from clipboard to specified page
+    public func pasteLayer(toLeftPage: Bool) {
+        guard let layer = clipboard else { return }
+        
+        saveUndoState()
+        
+        // Create a new layer with new ID and offset position
+        var newLayer = layer
+        newLayer.id = LayerID()
+        
+        // Offset the frame slightly so it's visible
+        var newFrame = newLayer.frame
+        newFrame.origin.x += 20
+        newFrame.origin.y += 20
+        newLayer.frame = newFrame
+        
+        // Add to page
+        if toLeftPage {
+            leftPage.layers.append(newLayer)
+        } else {
+            rightPage.layers.append(newLayer)
+        }
+        
+        selectedLayerId = newLayer.id
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
+    /// Duplicate selected layer
+    public func duplicateSelectedLayer() {
+        guard let id = selectedLayerId else { return }
+        
+        saveUndoState()
+        
+        var layerToDuplicate: AnyLayer?
+        var isLeft = false
+        
+        if let layer = leftPage.layers.first(where: { $0.id == id }) {
+            layerToDuplicate = layer
+            isLeft = true
+        } else if let layer = rightPage.layers.first(where: { $0.id == id }) {
+            layerToDuplicate = layer
+            isLeft = false
+        }
+        
+        guard var newLayer = layerToDuplicate else { return }
+        
+        // Create new layer with offset
+        newLayer.id = LayerID()
+        var newFrame = newLayer.frame
+        newFrame.origin.x += 20
+        newFrame.origin.y += 20
+        newLayer.frame = newFrame
+        
+        // Add to same page
+        if isLeft {
+            leftPage.layers.append(newLayer)
+        } else {
+            rightPage.layers.append(newLayer)
+        }
+        
+        selectedLayerId = newLayer.id
+        lastModified = Date()
+        updateCounter += 1
+    }
+    
+    /// Save current state to undo stack before making changes
+    public func saveUndoState() {
+        // Save current book structure
+        undoStack.append(bookStructure)
+        
+        // Limit undo stack size
+        if undoStack.count > maxUndoSteps {
+            undoStack.removeFirst()
+        }
+        
+        // Clear redo stack when new action is performed
+        redoStack.removeAll()
+    }
+    
+    /// Undo last action
+    public func undo() {
+        guard !undoStack.isEmpty else { return }
+        
+        // Save current state to redo stack
+        redoStack.append(bookStructure)
+        
+        // Restore previous state
+        bookStructure = undoStack.removeLast()
+        
+        // Reload current view
+        loadStateWithoutSaving()
+    }
+    
+    /// Redo last undone action
+    public func redo() {
+        guard !redoStack.isEmpty else { return }
+        
+        // Save current state to undo stack
+        undoStack.append(bookStructure)
+        
+        // Restore next state
+        bookStructure = redoStack.removeLast()
+        
+        // Reload current view
+        loadStateWithoutSaving()
+    }
+    
+    /// Check if undo is available
+    public var canUndo: Bool {
+        !undoStack.isEmpty
+    }
+    
+    /// Check if redo is available
+    public var canRedo: Bool {
+        !redoStack.isEmpty
+    }
+    
     // MARK: - Bleed Guide (Phase 3)
     
     /// Whether to show the bleed guide overlay on canvas
