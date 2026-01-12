@@ -12,16 +12,23 @@ struct PageNavigatorView: View {
     @State private var moveToPage = ""
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Move spread toolbar
-            moveSpreadToolbar
+        HStack(spacing: 0) {
+            // Main content
+            VStack(spacing: 0) {
+                // Move spread toolbar
+                moveSpreadToolbar
+                
+                // Main navigator
+                mainNavigator
+            }
+            .frame(height: 140)
             
-            // Main navigator
-            mainNavigator
-        }
-        .frame(height: 140)
-        .sheet(isPresented: $showMoveDialog) {
-            moveSpreadDialog
+            // Side panel for move page
+            if showMoveDialog {
+                moveSidePanel
+                    .frame(width: 300)
+                    .transition(.move(edge: .trailing))
+            }
         }
         .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
@@ -149,6 +156,98 @@ struct PageNavigatorView: View {
         }
         .padding(30)
         .frame(width: 500)
+    }
+    
+    // MARK: - Move Side Panel
+    
+    private var moveSidePanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Text(localization.localized(.movePageTitle))
+                    .font(.headline)
+                Spacer()
+                Button {
+                    withAnimation {
+                        showMoveDialog = false
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Divider()
+            
+            // Description
+            Text(localization.localized(.movePageDescription))
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            // From page
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localization.localized(.fromPage))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField(localization.localized(.enterPageNumber), text: $moveFromPage)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            // Arrow
+            HStack {
+                Spacer()
+                Image(systemName: "arrow.down")
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            
+            // To page
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localization.localized(.toPageBefore))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField(localization.localized(.enterPageNumber), text: $moveToPage)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            // Hint
+            let totalPages = editorState.spreadCount * 2
+            Text(localization.localized(.pageNumberHint(totalPages, editorState.spreadCount)))
+                .font(.caption2)
+                .foregroundColor(.orange)
+                .padding(.top, 4)
+            
+            Spacer()
+            
+            // Buttons
+            HStack(spacing: 8) {
+                Button(localization.localized(.cancel)) {
+                    withAnimation {
+                        showMoveDialog = false
+                        moveFromPage = ""
+                        moveToPage = ""
+                    }
+                }
+                .keyboardShortcut(.escape)
+                
+                Spacer()
+                
+                Button(localization.localized(.move)) {
+                    performMove()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .background(themeManager.theme.panelColor)
+        .overlay(
+            Rectangle()
+                .frame(width: 1)
+                .foregroundColor(Color.gray.opacity(0.2)),
+            alignment: .leading
+        )
     }
     
     private func performMove() {

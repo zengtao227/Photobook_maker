@@ -104,6 +104,14 @@ public enum LocalizedKey {
     case close
     case add
     case edit
+    case cut
+    case copy
+    case paste
+    case duplicate
+    case bringToFront
+    case sendToBack
+    case bringForward
+    case sendBackward
     
     // Navigation
     case project
@@ -273,6 +281,14 @@ public enum LocalizedKey {
         case .close: return "关闭"
         case .add: return "添加"
         case .edit: return "编辑"
+        case .cut: return "剪切"
+        case .copy: return "复制"
+        case .paste: return "粘贴"
+        case .duplicate: return "复制图层"
+        case .bringToFront: return "置于顶层"
+        case .sendToBack: return "置于底层"
+        case .bringForward: return "上移一层"
+        case .sendBackward: return "下移一层"
         case .project: return "项目"
         case .backToProjects: return "返回项目列表"
         case .myProjects: return "我的项目"
@@ -426,6 +442,14 @@ public enum LocalizedKey {
         case .close: return "Close"
         case .add: return "Add"
         case .edit: return "Edit"
+        case .cut: return "Cut"
+        case .copy: return "Copy"
+        case .paste: return "Paste"
+        case .duplicate: return "Duplicate"
+        case .bringToFront: return "Bring to Front"
+        case .sendToBack: return "Send to Back"
+        case .bringForward: return "Bring Forward"
+        case .sendBackward: return "Send Backward"
         case .project: return "Project"
         case .backToProjects: return "Back to Projects"
         case .myProjects: return "My Projects"
@@ -579,6 +603,14 @@ public enum LocalizedKey {
         case .close: return "Schließen"
         case .add: return "Hinzufügen"
         case .edit: return "Bearbeiten"
+        case .cut: return "Ausschneiden"
+        case .copy: return "Kopieren"
+        case .paste: return "Einfügen"
+        case .duplicate: return "Duplizieren"
+        case .bringToFront: return "Ganz nach vorne"
+        case .sendToBack: return "Ganz nach hinten"
+        case .bringForward: return "Ebene nach vorne"
+        case .sendBackward: return "Ebene nach hinten"
         case .project: return "Projekt"
         case .backToProjects: return "Zurück zu Projekten"
         case .myProjects: return "Meine Projekte"
@@ -729,6 +761,14 @@ public enum LocalizedKey {
         case .close: return "Fermer"
         case .add: return "Ajouter"
         case .edit: return "Modifier"
+        case .cut: return "Couper"
+        case .copy: return "Copier"
+        case .paste: return "Coller"
+        case .duplicate: return "Dupliquer"
+        case .bringToFront: return "Mettre au premier plan"
+        case .sendToBack: return "Mettre à l'arrière-plan"
+        case .bringForward: return "Avancer d'un plan"
+        case .sendBackward: return "Reculer d'un plan"
         case .project: return "Projet"
         case .backToProjects: return "Retour aux projets"
         case .myProjects: return "Mes Projets"
