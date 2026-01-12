@@ -17,7 +17,16 @@ struct CanvasView: View {
                 
                 VStack(spacing: 20) {
                     headerInfo
-                    spreadContent
+                    
+                    HStack(spacing: 20) {
+                        // Left arrow button
+                        navigationButton(direction: .previous)
+                        
+                        spreadContent
+                        
+                        // Right arrow button
+                        navigationButton(direction: .next)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -25,6 +34,73 @@ struct CanvasView: View {
         .focused($isCanvasFocused)
         .onAppear { isCanvasFocused = true }
         .onTapGesture { isCanvasFocused = true }
+        .onKeyPress(.leftArrow) {
+            navigatePrevious()
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            navigateNext()
+            return .handled
+        }
+    }
+    
+    // MARK: - Navigation
+    
+    enum NavigationDirection {
+        case previous, next
+    }
+    
+    @ViewBuilder
+    private func navigationButton(direction: NavigationDirection) -> some View {
+        let canNavigate = direction == .previous ? canNavigatePrevious : canNavigateNext
+        let icon = direction == .previous ? "chevron.left" : "chevron.right"
+        
+        Button {
+            if direction == .previous {
+                navigatePrevious()
+            } else {
+                navigateNext()
+            }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(canNavigate ? themeManager.theme.accentColor : Color.gray.opacity(0.3))
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(canNavigate ? Color.white : Color.clear)
+                        .shadow(color: .black.opacity(canNavigate ? 0.1 : 0), radius: 4, x: 0, y: 2)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!canNavigate)
+        .help(direction == .previous ? "Previous Spread (←)" : "Next Spread (→)")
+    }
+    
+    private var canNavigatePrevious: Bool {
+        if case .innerSpread(let index) = editorState.currentTarget {
+            return index > 0
+        }
+        return false
+    }
+    
+    private var canNavigateNext: Bool {
+        if case .innerSpread(let index) = editorState.currentTarget {
+            return index < editorState.spreadCount - 1
+        }
+        return false
+    }
+    
+    private func navigatePrevious() {
+        if case .innerSpread(let index) = editorState.currentTarget, index > 0 {
+            editorState.navigateToSpread(index - 1)
+        }
+    }
+    
+    private func navigateNext() {
+        if case .innerSpread(let index) = editorState.currentTarget, index < editorState.spreadCount - 1 {
+            editorState.navigateToSpread(index + 1)
+        }
     }
     
     @ViewBuilder
@@ -203,6 +279,34 @@ struct BookPage: View {
             .focusable()
             .onKeyPress(.delete) { handleDelete() }
             .onKeyPress(.deleteForward) { handleDelete() }
+            .onKeyPress(keys: [.init("x")], phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    editorState.cutSelectedLayer()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(keys: [.init("c")], phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    editorState.copySelectedLayer()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(keys: [.init("v")], phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    editorState.pasteLayer(toLeftPage: isLeft)
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(keys: [.init("d")], phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    editorState.duplicateSelectedLayer()
+                    return .handled
+                }
+                return .ignored
+            }
             .sheet(item: cropBinding) { wrapper in cropSheet(wrapper: wrapper) }
             .sheet(item: filterBinding) { wrapper in filterSheet(wrapper: wrapper) }
             .dropDestination(for: URL.self) { items, location in
