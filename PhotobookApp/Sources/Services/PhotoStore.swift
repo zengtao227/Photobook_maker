@@ -14,6 +14,9 @@ class PhotoStore: ObservableObject {
     @Published var isLoading = false
     @Published var loadingProgress: Double = 0
     @Published var events: [PhotoEvent] = []
+    
+    // Multi-selection state
+    private var lastSelectedPhoto: Photo?
 
     private let exifReader = EXIFReader()
     private let groupingService = SmartGroupingService()
@@ -258,6 +261,63 @@ class PhotoStore: ObservableObject {
         } else {
             selectedPhotos.append(photo)
         }
+        lastSelectedPhoto = photo
+    }
+    
+    /// Handle photo selection with modifier keys
+    /// - Parameters:
+    ///   - photo: The photo being clicked
+    ///   - modifiers: Event modifiers (Shift, Cmd, etc.)
+    func handlePhotoSelection(_ photo: Photo, modifiers: EventModifiers) {
+        if modifiers.contains(.command) {
+            // Cmd+Click: Toggle selection (multi-select)
+            if let index = selectedPhotos.firstIndex(of: photo) {
+                selectedPhotos.remove(at: index)
+            } else {
+                selectedPhotos.append(photo)
+            }
+            lastSelectedPhoto = photo
+            
+        } else if modifiers.contains(.shift) {
+            // Shift+Click: Range selection
+            guard let lastPhoto = lastSelectedPhoto else {
+                // No previous selection, just select this one
+                selectedPhotos = [photo]
+                lastSelectedPhoto = photo
+                return
+            }
+            
+            // Find range between last selected and current
+            let range = getPhotoRange(from: lastPhoto, to: photo)
+            
+            // Clear current selection and select range
+            selectedPhotos = range
+            // Don't update lastSelectedPhoto for shift-click
+            
+        } else {
+            // Normal click: Clear selection and select only this photo
+            selectedPhotos = [photo]
+            lastSelectedPhoto = photo
+        }
+    }
+    
+    /// Get all photos between two photos (inclusive)
+    private func getPhotoRange(from startPhoto: Photo, to endPhoto: Photo) -> [Photo] {
+        guard let startIndex = allPhotos.firstIndex(of: startPhoto),
+              let endIndex = allPhotos.firstIndex(of: endPhoto) else {
+            return [endPhoto]
+        }
+        
+        let minIndex = min(startIndex, endIndex)
+        let maxIndex = max(startIndex, endIndex)
+        
+        return Array(allPhotos[minIndex...maxIndex])
+    }
+    
+    /// Select all photos
+    func selectAll() {
+        selectedPhotos = allPhotos
+        lastSelectedPhoto = allPhotos.last
     }
 
     /// Select all photos in a month

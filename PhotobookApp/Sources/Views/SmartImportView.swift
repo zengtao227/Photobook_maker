@@ -468,7 +468,7 @@ struct SmartImportView: View {
                 // Ensure we have a spread to work with
                 if currentSpreadIndex < 0 {
                     editorState.bookStructure.addInnerSpread()
-                    currentSpreadIndex = 0
+                    currentSpreadIndex = editorState.bookStructure.innerSpreads.count - 1
                     isLeft = true
                 }
                 
@@ -531,10 +531,9 @@ struct SmartImportView: View {
                     isLeft = false
                 } else {
                     editorState.bookStructure.innerSpreads[currentSpreadIndex].right.layers = newLayers
-                    // Prepare for next page - add new spread
-                    editorState.bookStructure.addInnerSpread()
-                    currentSpreadIndex += 1
+                    // Mark that we need a new spread for next page
                     isLeft = true
+                    currentSpreadIndex = -1
                 }
             }
             

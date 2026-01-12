@@ -9,6 +9,7 @@ struct LibraryPanel: View {
     @State private var searchText = ""
     @State private var expandedMonths: Set<String> = []
     @State private var showSmartImport = false
+    @FocusState private var isFocused: Bool
     
     var body: some View {
         photoLibraryContent
@@ -17,6 +18,15 @@ struct LibraryPanel: View {
                     .environment(editorState)
                     .environment(bookContext)
                     .environmentObject(photoStore)
+            }
+            .focused($isFocused)
+            .onAppear { isFocused = true }
+            .onKeyPress(keys: [.init("a")], phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    photoStore.selectAll()
+                    return .handled
+                }
+                return .ignored
             }
     }
 
@@ -27,6 +37,21 @@ struct LibraryPanel: View {
                 Text("Library")
                     .font(.headline)
                     .foregroundColor(themeManager.theme.textColor)
+                
+                // Selection info
+                if !photoStore.selectedPhotos.isEmpty {
+                    Text("(\(photoStore.selectedPhotos.count) selected)")
+                        .font(.caption)
+                        .foregroundColor(themeManager.theme.secondaryTextColor)
+                    
+                    Button("Clear") {
+                        photoStore.clearSelection()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundColor(themeManager.theme.accentColor)
+                }
+                
                 Spacer()
                 
                 // Smart Import Button
@@ -164,7 +189,7 @@ struct PhotoThumnailView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .topTrailing) {
             // Use thumbnail image if available, otherwise async load
             if let thumbnail = photo.thumbnailImage {
                 Image(nsImage: thumbnail)
@@ -199,15 +224,23 @@ struct PhotoThumnailView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
+            
+            // Selection indicator
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(themeManager.theme.accentColor)
+                    .background(Circle().fill(Color.white))
+                    .padding(4)
+            }
         }
         .frame(minWidth: 60, minHeight: 60)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(isSelected ? themeManager.theme.accentColor : Color.clear, lineWidth: 2)
+                .stroke(isSelected ? themeManager.theme.accentColor : Color.clear, lineWidth: 3)
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            photoStore.toggleSelection(photo)
+            handleTap()
         }
         // Right-click context menu
         .contextMenu {
@@ -231,5 +264,20 @@ struct PhotoThumnailView: View {
                     .frame(width: 60, height: 60)
             }
         }
+    }
+    
+    private func handleTap() {
+        let event = NSApp.currentEvent
+        let modifiers = event?.modifierFlags ?? []
+        
+        var eventModifiers: EventModifiers = []
+        if modifiers.contains(.command) {
+            eventModifiers.insert(.command)
+        }
+        if modifiers.contains(.shift) {
+            eventModifiers.insert(.shift)
+        }
+        
+        photoStore.handlePhotoSelection(photo, modifiers: eventModifiers)
     }
 }
