@@ -227,6 +227,21 @@ struct MainLayoutView: View {
             }
             return .ignored
         }
+        // Global Arrow Key Navigation
+        .onKeyPress(.leftArrow) {
+            if editorState.canNavigatePrevious {
+                editorState.navigatePrevious()
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.rightArrow) {
+            if editorState.canNavigateNext {
+                editorState.navigateNext()
+                return .handled
+            }
+            return .ignored
+        }
         // Auto-save on changes
         .onChange(of: editorState.lastModified) { _, _ in
             autoSaveProject()

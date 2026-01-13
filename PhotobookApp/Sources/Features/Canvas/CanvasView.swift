@@ -31,17 +31,6 @@ struct CanvasView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .focused($isCanvasFocused)
-        .onAppear { isCanvasFocused = true }
-        .onTapGesture { isCanvasFocused = true }
-        .onKeyPress(.leftArrow) {
-            navigatePrevious()
-            return .handled
-        }
-        .onKeyPress(.rightArrow) {
-            navigateNext()
-            return .handled
-        }
         .onKeyPress(.delete) {
             handleDelete()
         }
@@ -73,9 +62,9 @@ struct CanvasView: View {
         
         Button {
             if direction == .previous {
-                navigatePrevious()
+                editorState.navigatePrevious()
             } else {
-                navigateNext()
+                editorState.navigateNext()
             }
         } label: {
             Image(systemName: icon)
@@ -94,29 +83,19 @@ struct CanvasView: View {
     }
     
     private var canNavigatePrevious: Bool {
-        if case .innerSpread(let index) = editorState.currentTarget {
-            return index > 0
-        }
-        return false
+        editorState.canNavigatePrevious
     }
     
     private var canNavigateNext: Bool {
-        if case .innerSpread(let index) = editorState.currentTarget {
-            return index < editorState.spreadCount - 1
-        }
-        return false
+        editorState.canNavigateNext
     }
     
     private func navigatePrevious() {
-        if case .innerSpread(let index) = editorState.currentTarget, index > 0 {
-            editorState.navigateToSpread(index - 1)
-        }
+        editorState.navigatePrevious()
     }
     
     private func navigateNext() {
-        if case .innerSpread(let index) = editorState.currentTarget, index < editorState.spreadCount - 1 {
-            editorState.navigateToSpread(index + 1)
-        }
+        editorState.navigateNext()
     }
     
     @ViewBuilder

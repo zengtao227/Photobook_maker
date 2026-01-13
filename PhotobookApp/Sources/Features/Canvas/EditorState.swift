@@ -295,6 +295,60 @@ public class EditorState {
         guard bookStructure.bindingType.supportsFullWrap else { return }
         navigateTo(.fullCoverWrap)
     }
+
+    // MARK: - Sequence Navigation
+    
+    public var canNavigatePrevious: Bool {
+        switch currentTarget {
+        case .frontCover: return false
+        case .innerSpread, .backCover: return true
+        default: return false
+        }
+    }
+    
+    public var canNavigateNext: Bool {
+        switch currentTarget {
+        case .backCover: return false
+        case .frontCover, .innerSpread: return true
+        default: return false
+        }
+    }
+    
+    public func navigatePrevious() {
+        switch currentTarget {
+        case .innerSpread(let index):
+            if index > 0 {
+                navigateToSpread(index - 1)
+            } else {
+                navigateToFrontCover()
+            }
+        case .backCover:
+            if spreadCount > 0 {
+                navigateToSpread(spreadCount - 1)
+            } else {
+                navigateToFrontCover()
+            }
+        default: break
+        }
+    }
+    
+    public func navigateNext() {
+        switch currentTarget {
+        case .frontCover:
+            if spreadCount > 0 {
+                navigateToSpread(0)
+            } else {
+                navigateToBackCover()
+            }
+        case .innerSpread(let index):
+            if index < spreadCount - 1 {
+                navigateToSpread(index + 1)
+            } else {
+                navigateToBackCover()
+            }
+        default: break
+        }
+    }
     
     /// Save current left/right pages back to appropriate location
     public func saveCurrentState() {
