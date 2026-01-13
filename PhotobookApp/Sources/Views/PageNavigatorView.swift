@@ -470,7 +470,7 @@ struct PageNavigatorView: View {
             .frame(width: 40)
             
             // Inner Spreads with drag reordering
-            ForEach(Array(editorState.bookStructure.innerSpreads.enumerated()), id: { "\($0.offset)_\($0.element.left.id)_\($0.element.right.id)" }) { index, spread in
+            ForEach(Array(editorState.bookStructure.innerSpreads.enumerated()), id: \.element.left.id) { index, spread in
                 SpreadThumbnailItem(
                     spreadIndex: index,
                     leftPage: spread.left,
