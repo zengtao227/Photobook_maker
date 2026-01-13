@@ -396,6 +396,11 @@ struct PageNavigatorView: View {
                     .foregroundColor(Color.white.opacity(0.1)),
                 alignment: .top
             )
+            .onChange(of: editorState.currentSpreadIndex) { _, newIndex in
+                withAnimation(.spring(response: 0.35)) {
+                    proxy.scrollTo("spread_\(newIndex)", anchor: .center)
+                }
+            }
         }
         .frame(height: 100)
     }

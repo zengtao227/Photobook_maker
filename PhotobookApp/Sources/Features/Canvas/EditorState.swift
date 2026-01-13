@@ -657,8 +657,14 @@ public class EditorState {
         }
         
         // Step 3: Rebuild spreads
-        // If the last page now has layers, we must add one more empty page 
-        // to ensure there's a placeholder-ready slot at the very end.
+        
+        // 1. Trim trailing empty pages (except the first spread)
+        while allContents.count > 2 && allContents.last?.layers.isEmpty == true {
+            allContents.removeLast()
+        }
+        
+        // 2. If the last page now has content, add one more empty page 
+        // to ensure there's always a placeholder-ready spot at the very end.
         if let last = allContents.last, !last.layers.isEmpty {
              allContents.append((layers: [], bgColor: "#FFFFFF", bgType: .solid, gradientColors: nil, patternType: nil, textureType: nil))
         }
@@ -718,11 +724,17 @@ public class EditorState {
     
     /// Automatically arrange photos on the target page using AI templates
     func applySmartLayout(photos: [Photo], isLeftPage: Bool, pageSize: PageSize = .a5Landscape) {
-        // Block Page 1 (Cover Back) and Last Page (Inside Back Cover)?
-        // For now, let's at least block the very first page of the book.
-        if isLeftPage, case .innerSpread(let index) = currentTarget, index == 0 {
-            print("⚠️ Cannot apply smart layout to reserved Cover Back page.")
-            return
+        // Block Page 1 (Cover Back) and Last Page (Inside Back Cover)
+        if case .innerSpread(let index) = currentTarget {
+            let totalSpreads = bookStructure.innerSpreads.count
+            if index == 0 && isLeftPage {
+                print("⚠️ Cannot apply smart layout to reserved Cover Back page.")
+                return
+            }
+            if index == totalSpreads - 1 && !isLeftPage {
+                print("⚠️ Cannot apply smart layout to reserved Back Cover Back page.")
+                return
+            }
         }
         
         let result = autoLayoutEngine.layoutPhotos(photos, onPageSize: pageSize)

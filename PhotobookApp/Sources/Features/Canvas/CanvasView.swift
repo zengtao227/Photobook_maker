@@ -712,7 +712,12 @@ struct BookPage: View {
     
     private func handleDrop(items: [URL], location: CGPoint, scale: CGFloat) -> Bool {
         guard pageModel.pageNumber != -98 && pageModel.pageNumber != -99 else { return false }
-        if pageModel.pageNumber == 1 { return false } // Reserved: Cover Back
+        
+        let totalInnerPages = editorState.bookStructure.totalInnerPages
+        if pageModel.pageNumber == 1 || pageModel.pageNumber == totalInnerPages {
+            return false // Reserved: Cover Back and Back Cover Back
+        }
+        
         if pageModel.pageNumber == 0 && !isLeft { return false }
         if pageModel.pageNumber == -1 && isLeft { return false }
         guard let url = items.first else { return false }
