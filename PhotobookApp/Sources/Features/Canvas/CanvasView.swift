@@ -42,6 +42,22 @@ struct CanvasView: View {
             navigateNext()
             return .handled
         }
+        .onKeyPress(.delete) {
+            handleDelete()
+        }
+        .onKeyPress(.deleteForward) {
+            handleDelete()
+        }
+    }
+    
+    // MARK: - Delete Handler
+    
+    private func handleDelete() -> KeyPress.Result {
+        if editorState.selectedLayerId != nil {
+            editorState.deleteSelectedLayer()
+            return .handled
+        }
+        return .ignored
     }
     
     // MARK: - Navigation
@@ -254,6 +270,7 @@ struct BookPage: View {
     @Environment(ThemeManager.self) private var themeManager
     @Environment(EditorState.self) private var editorState
     @Environment(BookContext.self) private var bookContext
+    @Environment(LocalizationManager.self) private var localization
     @EnvironmentObject var photoStore: PhotoStore
     
     var pageModel: PageModel {
@@ -525,20 +542,26 @@ struct BookPage: View {
     // MARK: - Context Menu
     @ViewBuilder
     private var pageContextMenu: some View {
+        // Paste option (if clipboard has content)
+        if editorState.hasClipboard {
+            Button {
+                editorState.pasteLayer(toLeftPage: isLeft)
+            } label: {
+                Label(localization.localized(.paste), systemImage: "doc.on.clipboard")
+            }
+            .keyboardShortcut("v", modifiers: .command)
+            
+            Divider()
+        }
+        
         // Only show delete option for inner pages (not covers)
         if pageModel.pageNumber >= 1 {
             Button(role: .destructive) {
                 deleteSinglePage()
             } label: {
-                Label("删除此页", systemImage: "trash")
+                Label(localization.localized(.delete), systemImage: "trash")
             }
             .disabled(!canDeletePage)
-            
-            if !canDeletePage && !pageModel.layers.isEmpty {
-                Text("只能删除空白页")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
         }
     }
     
@@ -546,72 +569,132 @@ struct BookPage: View {
     private var canDeletePage: Bool {
         // Can only delete if:
         // 1. It's an inner page (not cover)
-        // 2. The page is empty (no layers)
-        // 3. There's more than one spread
+        // 2. There's more than one spread
         guard pageModel.pageNumber >= 1 else { return false }
-        guard pageModel.layers.isEmpty else { return false }
         guard editorState.spreadCount > 1 else { return false }
         return true
     }
     
-    /// Delete this single page by removing the entire spread if both pages are empty,
-    /// or by merging with adjacent pages
+    /// Delete this single page by removing it and shifting all subsequent pages forward
+    /// Uses ceil() for spread count to ensure odd pages have a home
+    /// Merges last spread only when BOTH its left and right pages are empty
     private func deleteSinglePage() {
         guard case .innerSpread(let currentIndex) = editorState.currentTarget else { return }
         guard canDeletePage else { return }
         
-        // Save current state first
-        editorState.saveCurrentState()
+        print("🗑️ 开始删除单页 - 当前跨页索引: \(currentIndex), 是左页: \(isLeft)")
         
-        let currentSpread = editorState.bookStructure.innerSpreads[currentIndex]
+        // Save to undo stack BEFORE making changes
+        editorState.saveUndoState()
         
-        // Check if the other page in this spread is also empty
-        let otherPageEmpty = isLeft ? currentSpread.right.layers.isEmpty : currentSpread.left.layers.isEmpty
+        // Step 1: Flatten all 'real' contents (excluding placeholders)
+        var allContents: [(layers: [AnyLayer], bgColor: String, bgType: PageModel.BackgroundType, gradientColors: [String]?, patternType: String?, textureType: String?)] = []
         
-        if otherPageEmpty {
-            // Both pages are empty - delete the entire spread
-            editorState.deleteSpread(at: currentIndex)
-        } else {
-            // Only one page is empty - we need to reorganize
-            // Strategy: Remove this page and shift subsequent pages
-            var newSpreads: [(left: PageModel, right: PageModel)] = []
-            var pagesToReorganize: [PageModel] = []
-            
-            // Collect all pages except the one being deleted
-            for (index, spread) in editorState.bookStructure.innerSpreads.enumerated() {
-                if index == currentIndex {
-                    // Skip the page being deleted
-                    if isLeft {
-                        pagesToReorganize.append(spread.right)
-                    } else {
-                        pagesToReorganize.append(spread.left)
-                    }
-                } else {
-                    pagesToReorganize.append(spread.left)
-                    pagesToReorganize.append(spread.right)
-                }
-            }
-            
-            // Reorganize into spreads
-            var i = 0
-            while i < pagesToReorganize.count {
-                if i + 1 < pagesToReorganize.count {
-                    newSpreads.append((left: pagesToReorganize[i], right: pagesToReorganize[i + 1]))
-                    i += 2
-                } else {
-                    // Odd page left - create a spread with empty right page
-                    newSpreads.append((left: pagesToReorganize[i], right: PageModel(pageNumber: -99)))
-                    i += 1
-                }
-            }
-            
-            // Update book structure
-            editorState.bookStructure.innerSpreads = newSpreads
-            
-            // Navigate to appropriate spread
-            let targetIndex = min(currentIndex, newSpreads.count - 1)
-            editorState.navigateToSpread(targetIndex)
+        for spread in editorState.bookStructure.innerSpreads {
+            // Include left page content if not a placeholder
+            allContents.append((
+                layers: spread.left.layers,
+                bgColor: spread.left.backgroundColorHex,
+                bgType: spread.left.backgroundType,
+                gradientColors: spread.left.gradientColors,
+                patternType: spread.left.patternType,
+                textureType: spread.left.textureType
+            ))
+            // Include right page content if not a placeholder
+            allContents.append((
+                layers: spread.right.layers,
+                bgColor: spread.right.backgroundColorHex,
+                bgType: spread.right.backgroundType,
+                gradientColors: spread.right.gradientColors,
+                patternType: spread.right.patternType,
+                textureType: spread.right.textureType
+            ))
         }
+        
+        // Step 2: Identify the slot we are deleting and remove it
+        // Our indexing: spread0.left(0), spread0.right(1), ...
+        let indexToDelete = currentIndex * 2 + (isLeft ? 0 : 1)
+        guard indexToDelete < allContents.count else { return }
+        
+        print("✂️ 正在从 \(allContents.count) 个内容槽位中删除索引 \(indexToDelete)")
+        allContents.remove(at: indexToDelete)
+        
+        // Step 3: Rebuild spreads with the "Left-Blank for Odd" rule
+        let N = allContents.count
+        var newSpreads: [(left: PageModel, right: PageModel)] = []
+        
+        if N % 2 == 0 {
+            // Even number of contents: Fill spreads normally (e.g., 6 contents -> 3 spreads)
+            for i in stride(from: 0, to: N, by: 2) {
+                var left = PageModel(pageNumber: i + 1)
+                left.layers = allContents[i].layers
+                left.backgroundColorHex = allContents[i].bgColor
+                left.backgroundType = allContents[i].bgType
+                left.gradientColors = allContents[i].gradientColors
+                left.patternType = allContents[i].patternType
+                left.textureType = allContents[i].textureType
+                
+                var right = PageModel(pageNumber: i + 2)
+                right.layers = allContents[i+1].layers
+                right.backgroundColorHex = allContents[i+1].bgColor
+                right.backgroundType = allContents[i+1].bgType
+                right.gradientColors = allContents[i+1].gradientColors
+                right.patternType = allContents[i+1].patternType
+                right.textureType = allContents[i+1].textureType
+                
+                newSpreads.append((left: left, right: right))
+            }
+        } else {
+            // Odd number of contents: Last spread's LEFT is empty (e.g., 7 contents -> 4 spreads)
+            // Fill first (N-1) contents into full spreads normally
+            for i in stride(from: 0, to: N - 1, by: 2) {
+                var left = PageModel(pageNumber: i + 1)
+                left.layers = allContents[i].layers
+                left.backgroundColorHex = allContents[i].bgColor
+                left.backgroundType = allContents[i].bgType
+                left.gradientColors = allContents[i].gradientColors
+                left.patternType = allContents[i].patternType
+                left.textureType = allContents[i].textureType
+                
+                var right = PageModel(pageNumber: i + 2)
+                right.layers = allContents[i+1].layers
+                right.backgroundColorHex = allContents[i+1].bgColor
+                right.backgroundType = allContents[i+1].bgType
+                right.gradientColors = allContents[i+1].gradientColors
+                right.patternType = allContents[i+1].patternType
+                right.textureType = allContents[i+1].textureType
+                
+                newSpreads.append((left: left, right: right))
+            }
+            
+            // Add the special last spread: [Empty, LastContent]
+            let lastContent = allContents[N - 1]
+            let leftPage = PageModel(pageNumber: N) // Empty
+            var rightPage = PageModel(pageNumber: N + 1)
+            rightPage.layers = lastContent.layers
+            rightPage.backgroundColorHex = lastContent.bgColor
+            rightPage.backgroundType = lastContent.bgType
+            rightPage.gradientColors = lastContent.gradientColors
+            rightPage.patternType = lastContent.patternType
+            rightPage.textureType = lastContent.textureType
+            
+            newSpreads.append((left: leftPage, right: rightPage))
+        }
+        
+        // Ensure at least one spread exists
+        if newSpreads.isEmpty {
+            newSpreads.append((left: PageModel(pageNumber: 1), right: PageModel(pageNumber: 2)))
+        }
+        
+        print("📖 重组完成: 内容数 \(N), 跨页数 \(newSpreads.count)")
+        editorState.bookStructure.innerSpreads = newSpreads
+        
+        // Step 4: Navigate
+        let targetIdx = min(currentIndex, newSpreads.count - 1)
+        editorState.currentTarget = .innerSpread(index: targetIdx)
+        editorState.loadStateWithoutSaving()
+        
+        print("✅ 删除成功，当前总页数: \(editorState.bookStructure.totalInnerPages)")
     }
     
     private func handleDrop(items: [URL], location: CGPoint, scale: CGFloat) -> Bool {

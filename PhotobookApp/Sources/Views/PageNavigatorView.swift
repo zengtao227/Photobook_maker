@@ -12,24 +12,21 @@ struct PageNavigatorView: View {
     @State private var moveToPage = ""
     
     var body: some View {
-        HStack(spacing: 0) {
-            // Main content
-            VStack(spacing: 0) {
-                // Move spread toolbar
-                moveSpreadToolbar
-                
-                // Main navigator
-                mainNavigator
-            }
-            .frame(height: 140)
+        VStack(spacing: 0) {
+            // Move spread toolbar
+            moveSpreadToolbar
             
-            // Side panel for move page
+            // Move Page Dialog (if shown)
             if showMoveDialog {
-                moveSidePanel
-                    .frame(width: 300)
-                    .transition(.move(edge: .trailing))
+                movePageDialog
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
+            
+            // Main navigator
+            mainNavigator
         }
+        .frame(height: showMoveDialog ? 280 : 140)
+        .animation(.spring(response: 0.3), value: showMoveDialog)
         .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
                 if keyPress.modifiers.contains(.shift) {
@@ -158,96 +155,102 @@ struct PageNavigatorView: View {
         .frame(width: 500)
     }
     
-    // MARK: - Move Side Panel
+    // MARK: - Move Page Dialog (Inline in Toolbar)
     
-    private var moveSidePanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
+    private var movePageDialog: some View {
+        HStack(spacing: 20) {
+            // Close button
+            Button {
+                withAnimation {
+                    showMoveDialog = false
+                    moveFromPage = ""
+                    moveToPage = ""
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            
+            // Title
+            VStack(alignment: .leading, spacing: 2) {
                 Text(localization.localized(.movePageTitle))
                     .font(.headline)
-                Spacer()
-                Button {
-                    withAnimation {
-                        showMoveDialog = false
-                    }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            
-            Divider()
-            
-            // Description
-            Text(localization.localized(.movePageDescription))
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            // From page
-            VStack(alignment: .leading, spacing: 4) {
-                Text(localization.localized(.fromPage))
+                Text(localization.localized(.movePageDescription))
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TextField(localization.localized(.enterPageNumber), text: $moveFromPage)
-                    .textFieldStyle(.roundedBorder)
             }
-            
-            // Arrow
-            HStack {
-                Spacer()
-                Image(systemName: "arrow.down")
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            
-            // To page
-            VStack(alignment: .leading, spacing: 4) {
-                Text(localization.localized(.toPageBefore))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextField(localization.localized(.enterPageNumber), text: $moveToPage)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            // Hint
-            let totalPages = editorState.spreadCount * 2
-            Text(localization.localized(.pageNumberHint(totalPages, editorState.spreadCount)))
-                .font(.caption2)
-                .foregroundColor(.orange)
-                .padding(.top, 4)
             
             Spacer()
             
-            // Buttons
-            HStack(spacing: 8) {
-                Button(localization.localized(.cancel)) {
-                    withAnimation {
-                        showMoveDialog = false
-                        moveFromPage = ""
-                        moveToPage = ""
-                    }
-                }
-                .keyboardShortcut(.escape)
-                
-                Spacer()
-                
-                Button(localization.localized(.move)) {
-                    performMove()
-                }
-                .keyboardShortcut(.return)
-                .buttonStyle(.borderedProminent)
+            // From Page
+            VStack(spacing: 4) {
+                Text(localization.localized(.fromPage))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("", text: $moveFromPage)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .frame(width: 80)
             }
+            
+            Image(systemName: "arrow.right")
+                .foregroundColor(themeManager.theme.accentColor)
+            
+            // To Page
+            VStack(spacing: 4) {
+                Text(localization.localized(.toPageBefore))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("", text: $moveToPage)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .frame(width: 80)
+            }
+            
+            Spacer()
+            
+            // Info
+            let totalPages = editorState.spreadCount * 2
+            Text("共 \(totalPages) 页")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.blue.opacity(0.1))
+                )
+            
+            // Buttons
+            Button(localization.localized(.cancel)) {
+                withAnimation {
+                    showMoveDialog = false
+                    moveFromPage = ""
+                    moveToPage = ""
+                }
+            }
+            .keyboardShortcut(.escape)
+            
+            Button(localization.localized(.move)) {
+                performMove()
+            }
+            .keyboardShortcut(.return)
+            .buttonStyle(.borderedProminent)
+            .disabled(moveFromPage.isEmpty || moveToPage.isEmpty)
         }
-        .padding()
-        .background(themeManager.theme.panelColor)
-        .overlay(
-            Rectangle()
-                .frame(width: 1)
-                .foregroundColor(Color.gray.opacity(0.2)),
-            alignment: .leading
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(themeManager.theme.searchFieldColor)
+                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
         )
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
     
     private func performMove() {
@@ -467,7 +470,7 @@ struct PageNavigatorView: View {
             .frame(width: 40)
             
             // Inner Spreads with drag reordering
-            ForEach(Array(editorState.bookStructure.innerSpreads.enumerated()), id: \.offset) { index, spread in
+            ForEach(Array(editorState.bookStructure.innerSpreads.enumerated()), id: { "\($0.offset)_\($0.element.left.id)_\($0.element.right.id)" }) { index, spread in
                 SpreadThumbnailItem(
                     spreadIndex: index,
                     leftPage: spread.left,
