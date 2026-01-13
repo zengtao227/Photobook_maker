@@ -66,15 +66,23 @@ struct PhotoLayerElement: View {
                 } else {
                     AsyncImage(url: layer.photoUrl) { phase in
                         if let image = phase.image {
-                            // 获取原始图片尺寸
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: isCropped ? .fill : .fit)
-                                .rotationEffect(.degrees(layer.cropRotation))
-                                .scaleEffect(isCropped ? layer.cropScale : 1.0)
-                                .offset(isCropped ? layer.cropOffset : .zero)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .clipped()
+                            if isCropped {
+                                // 裁剪模式：显示裁剪区域填满整个frame
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .rotationEffect(.degrees(layer.cropRotation))
+                                    .scaleEffect(layer.cropScale)
+                                    .offset(layer.cropOffset)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
+                                    .clipped()
+                            } else {
+                                // 默认FIT模式：完整显示照片
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
+                            }
                         } else {
                             Color.gray.opacity(0.3)
                         }
@@ -105,14 +113,23 @@ struct PhotoLayerElement: View {
     
     @ViewBuilder
     private func croppedImageView(nsImage: NSImage, frameSize: CGSize) -> some View {
-        Image(nsImage: nsImage)
-            .resizable()
-            .aspectRatio(contentMode: isCropped ? .fill : .fit)
-            .rotationEffect(.degrees(layer.cropRotation))
-            .scaleEffect(isCropped ? layer.cropScale : 1.0)
-            .offset(isCropped ? layer.cropOffset : .zero)
-            .frame(width: frameSize.width, height: frameSize.height)
-            .clipped()
+        if isCropped {
+            // 裁剪模式
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .rotationEffect(.degrees(layer.cropRotation))
+                .scaleEffect(layer.cropScale)
+                .offset(layer.cropOffset)
+                .frame(width: frameSize.width, height: frameSize.height)
+                .clipped()
+        } else {
+            // 默认FIT模式
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: frameSize.width, height: frameSize.height)
+        }
     }
     
     @ViewBuilder
