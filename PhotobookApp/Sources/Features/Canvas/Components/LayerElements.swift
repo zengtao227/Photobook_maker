@@ -45,25 +45,40 @@ struct PhotoLayerElement: View {
     let layer: PhotoLayer
     
     @State private var filteredImage: NSImage?
+    @State private var originalImageSize: CGSize = .zero
+    
+    /// 检查是否进行了裁切（不是完整图片）
+    private var isCropped: Bool {
+        guard let normRect = layer.normalizedCropRect else { return false }
+        // 如果裁切区域不是完整图片（0,0,1,1），则认为进行了裁切
+        let isFullImage = normRect.origin.x < 0.01 && 
+                          normRect.origin.y < 0.01 && 
+                          normRect.width > 0.99 && 
+                          normRect.height > 0.99
+        return !isFullImage
+    }
     
     var body: some View {
-        Group {
-            if let filtered = filteredImage {
-                Image(nsImage: filtered)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .rotationEffect(.degrees(layer.cropRotation))
-                    .scaleEffect(layer.cropScale)
-                    .offset(layer.cropOffset)
-            } else {
-                AsyncImage(url: layer.photoUrl) { image in
-                    image.resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .rotationEffect(.degrees(layer.cropRotation))
-                        .scaleEffect(layer.cropScale)
-                        .offset(layer.cropOffset)
-                } placeholder: {
-                    Color.gray.opacity(0.3)
+        GeometryReader { geometry in
+            Group {
+                if let filtered = filteredImage {
+                    croppedImageView(nsImage: filtered, frameSize: geometry.size)
+                } else {
+                    AsyncImage(url: layer.photoUrl) { phase in
+                        if let image = phase.image {
+                            // 获取原始图片尺寸
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: isCropped ? .fill : .fit)
+                                .rotationEffect(.degrees(layer.cropRotation))
+                                .scaleEffect(isCropped ? layer.cropScale : 1.0)
+                                .offset(isCropped ? layer.cropOffset : .zero)
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .clipped()
+                        } else {
+                            Color.gray.opacity(0.3)
+                        }
+                    }
                 }
             }
         }
@@ -86,6 +101,18 @@ struct PhotoLayerElement: View {
         .onChange(of: layer.vignetteIntensity) { _, _ in loadFilteredImage() }
         .onChange(of: layer.sharpenIntensity) { _, _ in loadFilteredImage() }
         .onChange(of: layer.temperature) { _, _ in loadFilteredImage() }
+    }
+    
+    @ViewBuilder
+    private func croppedImageView(nsImage: NSImage, frameSize: CGSize) -> some View {
+        Image(nsImage: nsImage)
+            .resizable()
+            .aspectRatio(contentMode: isCropped ? .fill : .fit)
+            .rotationEffect(.degrees(layer.cropRotation))
+            .scaleEffect(isCropped ? layer.cropScale : 1.0)
+            .offset(isCropped ? layer.cropOffset : .zero)
+            .frame(width: frameSize.width, height: frameSize.height)
+            .clipped()
     }
     
     @ViewBuilder
