@@ -91,13 +91,19 @@ struct SelectionBorder: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
             .offset(x: offset(for: alignment).width, y: offset(for: alignment).height)
             .gesture(
-                DragGesture()
+                DragGesture(coordinateSpace: .global)
                     .onChanged { value in
                         if innerInitialFrame == nil {
                             innerInitialFrame = frame
                         }
                         guard let startFrame = innerInitialFrame else { return }
-                        updateFrame(startFrame: startFrame, drag: value.translation, alignment: alignment)
+                        
+                        // Use global translation to avoid jitter
+                        let drag = CGSize(
+                            width: value.translation.width,
+                            height: value.translation.height
+                        )
+                        updateFrame(startFrame: startFrame, drag: drag, alignment: alignment)
                     }
                     .onEnded { _ in
                         innerInitialFrame = nil
@@ -118,63 +124,61 @@ struct SelectionBorder: View {
     }
     
     private func updateFrame(startFrame: CGRect, drag: CGSize, alignment: Alignment) {
-        var newFrame = startFrame
         let ar = startFrame.width / startFrame.height
         let minSize: CGFloat = 30
+        var newFrame = startFrame
         
         if lockAspectRatio {
-            var deltaW: CGFloat = 0
-            
-            switch alignment {
-            case .bottomTrailing, .topTrailing:
-                deltaW = drag.width
-            case .topLeading, .bottomLeading:
-                deltaW = -drag.width
-            default: break
-            }
-            
-            let newW = max(minSize, startFrame.width + deltaW)
-            let newH = newW / ar
-            
             switch alignment {
             case .bottomTrailing:
-                newFrame.size.width = newW
-                newFrame.size.height = newH
-                
-            case .topLeading:
-                newFrame.origin.x = startFrame.maxX - newW
-                newFrame.origin.y = startFrame.maxY - newH
-                newFrame.size.width = newW
-                newFrame.size.height = newH
+                let newW = max(minSize, startFrame.width + drag.width)
+                let newH = newW / ar
+                newFrame.size = CGSize(width: newW, height: newH)
                 
             case .topTrailing:
+                let newW = max(minSize, startFrame.width + drag.width)
+                let newH = newW / ar
+                newFrame.size = CGSize(width: newW, height: newH)
                 newFrame.origin.y = startFrame.maxY - newH
-                newFrame.size.width = newW
-                newFrame.size.height = newH
                 
             case .bottomLeading:
+                let newW = max(minSize, startFrame.width - drag.width)
+                let newH = newW / ar
+                newFrame.size = CGSize(width: newW, height: newH)
                 newFrame.origin.x = startFrame.maxX - newW
-                newFrame.size.width = newW
-                newFrame.size.height = newH
+                
+            case .topLeading:
+                let newW = max(minSize, startFrame.width - drag.width)
+                let newH = newW / ar
+                newFrame.size = CGSize(width: newW, height: newH)
+                newFrame.origin.x = startFrame.maxX - newW
+                newFrame.origin.y = startFrame.maxY - newH
                 
             default: break
             }
         } else {
             switch alignment {
             case .topLeading:
-                newFrame.origin.x += drag.width; newFrame.origin.y += drag.height
-                newFrame.size.width -= drag.width; newFrame.size.height -= drag.height
+                newFrame.origin.x += drag.width
+                newFrame.origin.y += drag.height
+                newFrame.size.width -= drag.width
+                newFrame.size.height -= drag.height
             case .topTrailing:
-                newFrame.origin.y += drag.height; newFrame.size.width += drag.width; newFrame.size.height -= drag.height
+                newFrame.origin.y += drag.height
+                newFrame.size.width += drag.width
+                newFrame.size.height -= drag.height
             case .bottomLeading:
-                newFrame.origin.x += drag.width; newFrame.size.width -= drag.width; newFrame.size.height += drag.height
+                newFrame.origin.x += drag.width
+                newFrame.size.width -= drag.width
+                newFrame.size.height += drag.height
             case .bottomTrailing:
-                newFrame.size.width += drag.width; newFrame.size.height += drag.height
+                newFrame.size.width += drag.width
+                newFrame.size.height += drag.height
             default: break
             }
         }
         
-        if newFrame.size.width > minSize && newFrame.size.height > minSize {
+        if newFrame.size.width >= minSize && newFrame.size.height >= minSize {
             self.frame = newFrame
         }
     }

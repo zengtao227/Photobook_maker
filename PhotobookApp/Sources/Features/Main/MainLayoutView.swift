@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MainLayoutView: View {
+    @Environment(\.undoManager) private var undoManager
     @Environment(ThemeManager.self) private var themeManager
     @Environment(BookContext.self) private var bookContext
     @Environment(EditorState.self) private var editorState
@@ -47,6 +48,7 @@ struct MainLayoutView: View {
                     Spacer()
                     
                     // Center: Current Page Indicator
+                    // Center: Current Page Indicator with Swap functionality
                     HStack(spacing: 8) {
                         Image(systemName: editorState.isEditingCover ? "book.closed" : "book.pages")
                             .foregroundColor(themeManager.theme.accentColor)
@@ -57,21 +59,23 @@ struct MainLayoutView: View {
                         
                         // Swap Left/Right Pages button (only for inner spreads)
                         if case .innerSpread = editorState.currentTarget {
-                            Button(action: {
-                                editorState.swapLeftRightPages()
-                            }) {
-                                Image(systemName: "arrow.left.arrow.right")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(themeManager.theme.accentColor)
-                            .help(localization.localized(.swapLeftRight))
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.caption)
+                                .foregroundColor(themeManager.theme.accentColor)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(themeManager.theme.searchFieldColor)
                     .cornerRadius(8)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // Swap pages when clicking anywhere on the spread indicator
+                        if case .innerSpread = editorState.currentTarget {
+                            editorState.swapLeftRightPages()
+                        }
+                    }
+                    .help(editorState.isEditingCover ? "" : localization.localized(.swapLeftRight))
                     
                     Spacer()
                     
@@ -183,8 +187,30 @@ struct MainLayoutView: View {
         .environment(localization)
         // Global Theme Transition
         .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
+        // Global Delete shortcut
+        .onKeyPress(.delete) {
+            if editorState.selectedLayerId != nil {
+                editorState.deleteSelectedLayer()
+                return .handled
+            }
+            return .ignored
+        }
+        .onChange(of: undoManager, initial: true) { _, newValue in
+            editorState.undoManager = newValue
+        }
+        // Global Delete shortcut (Cmd + Backspace)
+        .background(
+            Button("") {
+                editorState.smartDelete()
+            }
+            .keyboardShortcut(.delete, modifiers: .command)
+            .opacity(0)
+        )
+
+
         // Global Undo/Redo shortcuts
         .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
+
             if keyPress.modifiers.contains(.command) {
                 if keyPress.modifiers.contains(.shift) {
                     // Cmd+Shift+Z = Redo

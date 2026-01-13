@@ -108,7 +108,7 @@ class AutoLayoutEngine: ObservableObject {
     /// Photos from different groups are NEVER mixed on the same page.
     func generateBookLayout(groups: [PhotoGroup], classifiedPhotos: [ClassifiedPhoto]) -> [PageSuggestion] {
         var suggestions: [PageSuggestion] = []
-        var pageCounter = 1
+        var pageCounter = 2
         
         for group in groups {
             // 获取该组的分类照片

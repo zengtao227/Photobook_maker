@@ -319,6 +319,118 @@ class PhotoStore: ObservableObject {
         selectedPhotos = allPhotos
         lastSelectedPhoto = allPhotos.last
     }
+    
+    /// Check if a photo is used in the current book
+    func isPhotoUsed(_ photo: Photo, in editorState: EditorState) -> Bool {
+        let photoId = photo.id
+        
+        // Check all spreads
+        for spread in editorState.bookStructure.innerSpreads {
+            // Check left page
+            for layer in spread.left.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return true
+                }
+            }
+            // Check right page
+            for layer in spread.right.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return true
+                }
+            }
+        }
+        
+        // Check covers
+        for layer in editorState.bookStructure.frontCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return true
+            }
+        }
+        for layer in editorState.bookStructure.backCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// Find the first spread index where this photo is used
+    /// Returns nil if photo is not used, or a special value for covers
+    /// Returns -1 for front cover, -2 for back cover, or spread index (0-based) for inner pages
+    func findPhotoUsage(_ photo: Photo, in editorState: EditorState) -> Int? {
+        let photoId = photo.id
+        
+        // Check front cover
+        for layer in editorState.bookStructure.frontCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return -1 // Front cover
+            }
+        }
+        
+        // Check back cover
+        for layer in editorState.bookStructure.backCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return -2 // Back cover
+            }
+        }
+        
+        // Check all spreads
+        for (index, spread) in editorState.bookStructure.innerSpreads.enumerated() {
+            // Check left page
+            for layer in spread.left.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return index
+                }
+            }
+            // Check right page
+            for layer in spread.right.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return index
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Find the layer ID for a photo in the current book
+    /// Returns the layer ID if found, nil otherwise
+    func findPhotoLayerId(_ photo: Photo, in editorState: EditorState) -> LayerID? {
+        let photoId = photo.id
+        
+        // Check front cover
+        for layer in editorState.bookStructure.frontCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return photoLayer.id
+            }
+        }
+        
+        // Check back cover
+        for layer in editorState.bookStructure.backCover.layers {
+            if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                return photoLayer.id
+            }
+        }
+        
+        // Check all spreads
+        for spread in editorState.bookStructure.innerSpreads {
+            // Check left page
+            for layer in spread.left.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return photoLayer.id
+                }
+            }
+            // Check right page
+            for layer in spread.right.layers {
+                if let photoLayer = layer.layer as? PhotoLayer, photoLayer.photoId == photoId {
+                    return photoLayer.id
+                }
+            }
+        }
+        
+        return nil
+    }
 
     /// Select all photos in a month
     func selectAllInMonth(_ month: String) {
@@ -364,4 +476,26 @@ class PhotoStore: ObservableObject {
         
         print("DEBUG: deletePhoto completed")
     }
+    /// Delete all selected photos
+    func deleteSelected(undoManager: UndoManager? = nil) {
+        let photosToDelete = selectedPhotos
+        guard !photosToDelete.isEmpty else { return }
+        
+        let oldPhotos = allPhotos
+        let oldMonthGroups = monthGroups
+        
+        // Register undo
+        undoManager?.registerUndo(withTarget: self) { target in
+            target.allPhotos = oldPhotos
+            target.monthGroups = oldMonthGroups
+            target.selectedPhotos = []
+        }
+        undoManager?.setActionName("Delete Photos")
+        
+        for photo in photosToDelete {
+            deletePhoto(photo)
+        }
+        selectedPhotos.removeAll()
+    }
+
 }

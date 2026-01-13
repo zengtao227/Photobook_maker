@@ -10,11 +10,15 @@ struct SmartImportView: View {
     @EnvironmentObject var photoStore: PhotoStore
     @Environment(EditorState.self) var editorState
     @Environment(BookContext.self) var bookContext
+    @Environment(ThemeManager.self) var themeManager
+    @Environment(LocalizationManager.self) var localization
     
     @StateObject private var classifier: PhotoClassifier
     @StateObject private var layoutEngine: AutoLayoutEngine
     
     @Binding var isPresented: Bool
+
+
     
     // 状态管理
     @State private var importStep: ImportStep = .sourceSelection
@@ -52,7 +56,7 @@ struct SmartImportView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("智能导入向导")
+                Text(localization.localized(.smartImportWizard))
                     .font(.title2)
                     .fontWeight(.bold)
                 Spacer()
@@ -92,7 +96,7 @@ struct SmartImportView: View {
             // Footer Navigation
             HStack {
                 if importStep != .sourceSelection && importStep != .analyzing && importStep != .processing {
-                    Button("上一步") {
+                    Button(localization.localized(.previousStep)) {
                         goBack()
                     }
                     .keyboardShortcut(.escape, modifiers: [])
@@ -101,12 +105,12 @@ struct SmartImportView: View {
                 Spacer()
                 
                 if importStep == .groupingReview {
-                    Button("下一步: 布局风格") {
+                    Button(localization.localized(.nextStepLayout)) {
                         importStep = .layoutConfiguration
                     }
                     .buttonStyle(.borderedProminent)
                 } else if importStep == .layoutConfiguration {
-                    Button("开始生成") {
+                    Button(localization.localized(.startGenerating)) {
                         importStep = .processing
                         Task {
                             await finalizeGeneration()
@@ -143,21 +147,23 @@ struct SmartImportView: View {
     
     private var sourceSelectionView: some View {
         VStack(spacing: 30) {
-            Text("选择照片来源")
+            Text(localization.localized(.selectPhotoSource))
                 .font(.title)
             
             HStack(spacing: 40) {
-                ImportSourceButton(icon: "folder", title: "文件夹") {
+                ImportSourceButton(icon: "folder", title: localization.localized(.folder)) {
                     selectFolder()
                 }
                 
-                ImportSourceButton(icon: "photo.on.rectangle", title: "照片库") {
+                ImportSourceButton(icon: "photo", title: localization.localized(.selectPhotos)) {
+                    selectPhotos()
+                }
+                
+                ImportSourceButton(icon: "photo.on.rectangle", title: localization.localized(.photoLibrary)) {
                     showPhotoLibraryPicker = true
                 }
                 
-                ImportSourceButton(icon: "icloud", title: "iCloud") {
-                    // Reuse folder picker but guide user? 
-                    // Or just open an open panel that defaults to iCloud Drive
+                ImportSourceButton(icon: "icloud", title: localization.localized(.icloud)) {
                     selectFolder(defaultDirectory: FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents"))
                 }
             }
@@ -196,12 +202,12 @@ struct SmartImportView: View {
                 .padding(.horizontal)
             }
             
-            Text("正在本地分析照片特征...\n(场景识别 / 人脸检测 / 质量评估)")
+            Text(localization.localized(.analyzingFeatures))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Button("取消") {
+            Button(localization.localized(.cancel)) {
                 analysisTask?.cancel()
                 importStep = ImportStep.sourceSelection
             }
@@ -223,13 +229,13 @@ struct SmartImportView: View {
             // Left: Validated Groups
             VStack(alignment: .leading) {
                 HStack {
-                    Text("智能分组建议")
+                    Text(localization.localized(.smartGroupingSuggestions))
                         .font(.headline)
                     
                     Spacer()
                     
                     if selectedGroupForEdit != nil {
-                        Button("完成编辑") {
+                        Button(localization.localized(.finishEditing)) {
                             selectedGroupForEdit = nil
                         }
                         .buttonStyle(.borderedProminent)
@@ -261,13 +267,13 @@ struct SmartImportView: View {
             
             // Right: Settings
             VStack(alignment: .leading, spacing: 20) {
-                Text("统计信息")
+                Text(localization.localized(.statistics))
                     .font(.headline)
                 
                 VStack(alignment: .leading, spacing: 10) {
-                    StatRow(icon: "photo", label: "已分析照片", value: "\(classifier.classifiedPhotos.count) 张")
-                    StatRow(icon: "person.2", label: "识别人脸", value: "\(classifier.faceClust.count) 组")
-                    StatRow(icon: "mappin.and.ellipse", label: "地点分组", value: "\(classifier.locationGroups.count) 个")
+                    StatRow(icon: "photo", label: localization.localized(.analyzedPhotosCount(0)).components(separatedBy: ":").first ?? "Photos", value: "\(classifier.classifiedPhotos.count)")
+                    StatRow(icon: "person.2", label: localization.localized(.detectedFacesCount(0)).components(separatedBy: ":").first ?? "Faces", value: "\(classifier.faceClust.count)")
+                    StatRow(icon: "mappin.and.ellipse", label: localization.localized(.locationGroupsCount(0)).components(separatedBy: ":").first ?? "Locations", value: "\(classifier.locationGroups.count)")
                 }
                 .padding()
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
@@ -313,7 +319,7 @@ struct SmartImportView: View {
                     Button(role: .destructive) {
                         removeSelectedPhotos(from: group)
                     } label: {
-                        Label("删除选中 (\(selectedPhotosInGroup.count))", systemImage: "trash")
+                        Label(localization.localized(.deleteSelectedCount(selectedPhotosInGroup.count)), systemImage: "trash")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -387,7 +393,7 @@ struct SmartImportView: View {
     
     private var layoutConfigurationView: some View {
         VStack(spacing: 30) {
-            Text("选择整书设计风格")
+            Text(localization.localized(.chooseDesignStyle))
                 .font(.title2)
             
             HStack(spacing: 20) {
@@ -402,7 +408,7 @@ struct SmartImportView: View {
             }
             .padding()
             
-            Toggle("优先使用智能推荐模板", isOn: .constant(true))
+            Toggle(localization.localized(.prioritySmartTemplate), isOn: .constant(true))
                 .toggleStyle(.switch)
         }
     }
@@ -411,7 +417,7 @@ struct SmartImportView: View {
         VStack(spacing: 20) {
             ProgressView()
                 .scaleEffect(1.5)
-            Text("正在生成相册排版...")
+            Text(localization.localized(.generatingLayout))
                 .font(.headline)
         }
     }
@@ -429,6 +435,21 @@ struct SmartImportView: View {
         
         if panel.runModal() == .OK, let url = panel.url {
             loadPhotosFromFolder(url)
+        }
+    }
+    
+    private func selectPhotos() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.image]
+        
+        if panel.runModal() == .OK {
+            self.importedURLs = panel.urls
+            if !panel.urls.isEmpty {
+                importStep = ImportStep.analyzing
+            }
         }
     }
     
@@ -450,91 +471,75 @@ struct SmartImportView: View {
     }
     
     private func generateGroups(classifier: PhotoClassifier) {
-        // 智能事件分组：优先识别有意义的活动/事件
-        // 分组优先级：活动事件 > 场景类型 > 时间分组 > 地点分组
+        // 智能事件分组：时间优先，场景辅助
+        // 核心原则：首先按时间顺序，然后在时间线上按场景/活动分组
         
         var groups: [PhotoGroup] = []
         let allPhotos = classifier.classifiedPhotos.map { $0.photo }
         
-        // 1. 最高优先级：基于活动/事件的智能分组
-        // 这能识别出"打篮球"、"滑雪之旅"、"埃及旅行"等有意义的事件
-        let activityGroups = classifier.groupByActivity(classifier.classifiedPhotos)
-        groups.append(contentsOf: activityGroups)
-        
-        // 2. 对于未被活动分组的照片，尝试按场景类型分组
-        let activityGroupedIds = Set(groups.flatMap { $0.photos.map { $0.id } })
-        let ungroupedByActivity = classifier.classifiedPhotos.filter { !activityGroupedIds.contains($0.photo.id) }
-        
-        if !ungroupedByActivity.isEmpty {
-            let sceneDict = Dictionary(grouping: ungroupedByActivity, by: { $0.sceneCategory ?? SceneCategory.other })
-            for (scene, classifiedList) in sceneDict {
-                if classifiedList.count >= 2 && scene != .other {
-                    let group = PhotoGroup(
-                        id: UUID(),
-                        name: scene.displayName,
-                        icon: scene.icon,
-                        photos: classifiedList.map { $0.photo },
-                        groupType: .scene(scene)
-                    )
-                    groups.append(group)
-                }
-            }
+        // 0. 首先按时间排序所有照片
+        let sortedClassifiedPhotos = classifier.classifiedPhotos.sorted {
+            ($0.photo.dateTaken ?? Date.distantPast) < ($1.photo.dateTaken ?? Date.distantPast)
         }
         
-        // 3. 对于仍未分组的照片，尝试按时间事件分组
-        let groupedIds = Set(groups.flatMap { $0.photos.map { $0.id } })
-        let stillUngrouped = allPhotos.filter { !groupedIds.contains($0.id) }
+        print("📅 按时间排序后的照片数量: \(sortedClassifiedPhotos.count)")
+        if let first = sortedClassifiedPhotos.first?.photo.dateTaken,
+           let last = sortedClassifiedPhotos.last?.photo.dateTaken {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm"
+            print("📅 时间范围: \(formatter.string(from: first)) 至 \(formatter.string(from: last))")
+        }
         
-        if !stillUngrouped.isEmpty {
-            let timeGroups = classifier.groupByTimeEvent(stillUngrouped, gap: 14400) // 4 hours
+        // 1. 基于时间线的活动分组
+        // 在时间顺序的基础上，识别连续的活动/事件
+        let activityGroups = groupByTimelineActivity(sortedClassifiedPhotos, classifier: classifier)
+        groups.append(contentsOf: activityGroups)
+        
+        // 2. 对于未被分组的照片，按时间事件分组
+        let groupedIds = Set(groups.flatMap { $0.photos.map { $0.id } })
+        let ungrouped = sortedClassifiedPhotos.filter { !groupedIds.contains($0.photo.id) }
+        
+        if !ungrouped.isEmpty {
+            let timeGroups = classifier.groupByTimeEvent(ungrouped.map { $0.photo }, gap: 14400) // 4 hours
             for timeGroup in timeGroups where timeGroup.photos.count >= 2 {
                 groups.append(timeGroup)
             }
         }
         
-        // 4. 对于仍未分组的照片，尝试按地点分组
-        let finalGroupedIds = Set(groups.flatMap { $0.photos.map { $0.id } })
-        let remainingUngrouped = allPhotos.filter { !finalGroupedIds.contains($0.id) }
-        
-        if !remainingUngrouped.isEmpty {
-            for locGroup in classifier.locationGroups {
-                let locPhotos = remainingUngrouped.filter { locGroup.photoIds.contains($0.id) }
-                if locPhotos.count >= 2 {
-                    let group = PhotoGroup(
-                        id: UUID(),
-                        name: locGroup.placeName,
-                        icon: "mappin.and.ellipse",
-                        photos: locPhotos,
-                        groupType: .location(locGroup)
-                    )
-                    groups.append(group)
-                }
-            }
-        }
-        
-        // 5. 最后，收集所有剩余未分组的照片
+        // 3. 收集所有剩余未分组的照片
         let allGroupedIds = Set(groups.flatMap { $0.photos.map { $0.id } })
         let remaining = allPhotos.filter { !allGroupedIds.contains($0.id) }
         if !remaining.isEmpty {
+            // 按时间排序剩余照片
+            let sortedRemaining = remaining.sorted {
+                ($0.dateTaken ?? Date.distantPast) < ($1.dateTaken ?? Date.distantPast)
+            }
             groups.append(PhotoGroup(
                 id: UUID(),
                 name: "其他照片",
                 icon: "photo.stack",
-                photos: remaining,
+                photos: sortedRemaining,
                 groupType: .custom
             ))
         }
         
-        // 6. 按照片数量排序（最多的在前）
-        groups.sort { $0.photoCount > $1.photoCount }
+        // 4. 关键：按照每个分组中最早照片的时间排序（时间优先）
+        groups.sort { group1, group2 in
+            let date1 = group1.photos.compactMap { $0.dateTaken }.min() ?? Date.distantPast
+            let date2 = group2.photos.compactMap { $0.dateTaken }.min() ?? Date.distantPast
+            return date1 < date2
+        }
         
-        // 7. 如果完全没有分组，创建一个包含所有照片的分组
+        // 5. 如果完全没有分组，创建一个包含所有照片的分组（按时间排序）
         if groups.isEmpty && !allPhotos.isEmpty {
+            let sortedAll = allPhotos.sorted {
+                ($0.dateTaken ?? Date.distantPast) < ($1.dateTaken ?? Date.distantPast)
+            }
             groups.append(PhotoGroup(
                 id: UUID(),
                 name: "所有照片",
                 icon: "photo.stack",
-                photos: allPhotos,
+                photos: sortedAll,
                 groupType: .custom
             ))
         }
@@ -542,10 +547,150 @@ struct SmartImportView: View {
         self.detectedEvents = groups
         
         // 打印分组结果用于调试
-        print("📊 智能分组结果:")
+        print("📊 智能分组结果（按时间排序）:")
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM-dd"
         for (index, group) in groups.enumerated() {
-            print("  \(index + 1). \(group.name) - \(group.photoCount)张照片")
+            let firstDate = group.photos.compactMap { $0.dateTaken }.min()
+            let dateStr = firstDate.map { formatter.string(from: $0) } ?? "无日期"
+            print("  \(index + 1). [\(dateStr)] \(group.name) - \(group.photoCount)张照片")
         }
+    }
+    
+    /// 基于时间线的活动分组
+    /// 在时间顺序的基础上，识别连续的活动/事件
+    private func groupByTimelineActivity(_ sortedPhotos: [ClassifiedPhoto], classifier: PhotoClassifier) -> [PhotoGroup] {
+        guard !sortedPhotos.isEmpty else { return [] }
+        
+        var groups: [PhotoGroup] = []
+        var currentGroup: [ClassifiedPhoto] = []
+        var currentScene: SceneCategory?
+        var currentActivityType: ActivityType?
+        
+        // 时间间隔阈值（4小时）
+        let timeGap: TimeInterval = 14400
+        
+        for photo in sortedPhotos {
+            let scene = photo.sceneCategory ?? .other
+            
+            if currentGroup.isEmpty {
+                // 开始新分组
+                currentGroup = [photo]
+                currentScene = scene
+                currentActivityType = detectActivityTypeForPhoto(photo, scene: scene)
+            } else {
+                // 检查是否应该继续当前分组
+                let lastPhoto = currentGroup.last!
+                let lastDate = lastPhoto.photo.dateTaken ?? Date.distantPast
+                let currDate = photo.photo.dateTaken ?? Date.distantPast
+                let timeDiff = currDate.timeIntervalSince(lastDate)
+                
+                // 判断是否是同一活动：
+                // 1. 时间间隔在阈值内
+                // 2. 场景类型相同或兼容
+                let isSameActivity = timeDiff <= timeGap && isCompatibleScene(currentScene, scene)
+                
+                if isSameActivity {
+                    currentGroup.append(photo)
+                } else {
+                    // 保存当前分组，开始新分组
+                    if currentGroup.count >= 2 {
+                        let group = createGroupFromPhotos(currentGroup, scene: currentScene!, activityType: currentActivityType!)
+                        groups.append(group)
+                    }
+                    currentGroup = [photo]
+                    currentScene = scene
+                    currentActivityType = detectActivityTypeForPhoto(photo, scene: scene)
+                }
+            }
+        }
+        
+        // 保存最后一个分组
+        if currentGroup.count >= 2, let scene = currentScene, let activityType = currentActivityType {
+            let group = createGroupFromPhotos(currentGroup, scene: scene, activityType: activityType)
+            groups.append(group)
+        }
+        
+        return groups
+    }
+    
+    /// 检查两个场景是否兼容（可以归为同一活动）
+    private func isCompatibleScene(_ scene1: SceneCategory?, _ scene2: SceneCategory) -> Bool {
+        guard let s1 = scene1 else { return true }
+        
+        // 相同场景
+        if s1 == scene2 { return true }
+        
+        // 兼容的场景组合
+        let compatibleGroups: [[SceneCategory]] = [
+            [.landscape, .nature, .travel],  // 户外/旅行
+            [.portrait, .event],              // 人物/活动
+            [.food, .urban],                  // 城市生活
+            [.architecture, .travel, .urban], // 城市/旅行
+        ]
+        
+        for group in compatibleGroups {
+            if group.contains(s1) && group.contains(scene2) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// 为单张照片检测活动类型
+    private func detectActivityTypeForPhoto(_ photo: ClassifiedPhoto, scene: SceneCategory) -> ActivityType {
+        switch scene {
+        case .landscape, .nature: return .outdoor
+        case .portrait: return photo.faceCount > 2 ? .party : .family
+        case .food: return .dining
+        case .architecture, .travel, .urban: return .travel
+        case .event: return .party
+        case .animal: return .outdoor
+        default: return .unknown
+        }
+    }
+    
+    /// 从照片列表创建分组
+    private func createGroupFromPhotos(_ photos: [ClassifiedPhoto], scene: SceneCategory, activityType: ActivityType) -> PhotoGroup {
+        guard let firstDate = photos.first?.photo.dateTaken,
+              let lastDate = photos.last?.photo.dateTaken else {
+            return PhotoGroup(
+                id: UUID(),
+                name: activityType.displayName,
+                icon: activityType.icon,
+                photos: photos.map { $0.photo },
+                groupType: .scene(scene)
+            )
+        }
+        
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        
+        let isSameDay = calendar.isDate(firstDate, inSameDayAs: lastDate)
+        let eventName: String
+        
+        if isSameDay {
+            formatter.dateFormat = "M月d日"
+            let dateStr = formatter.string(from: firstDate)
+            let hour = calendar.component(.hour, from: firstDate)
+            let timeHint = hour < 6 ? "凌晨" : hour < 12 ? "上午" : hour < 18 ? "下午" : "晚上"
+            eventName = "\(activityType.displayName) - \(dateStr) \(timeHint)"
+        } else {
+            formatter.dateFormat = "M月d日"
+            let startStr = formatter.string(from: firstDate)
+            let endStr = formatter.string(from: lastDate)
+            eventName = "\(activityType.displayName) - \(startStr)至\(endStr)"
+        }
+        
+        return PhotoGroup(
+            id: UUID(),
+            name: eventName,
+            icon: activityType.icon,
+            photos: photos.map { $0.photo },
+            groupType: .scene(scene)
+        )
     }
     
     private func finalizeGeneration() async {
@@ -575,28 +720,26 @@ struct SmartImportView: View {
             
             // Track current group to enforce event isolation
             var currentGroupIndex = -1
-            var currentSpreadIndex = -1
-            var isLeft = true
+            
+            // Start by adding the first spread
+            editorState.bookStructure.addInnerSpread()
+            var currentSpreadIndex = 0
+            var nextIsLeft = false // IMPORTANT: Page 1 is Reserved (Cover Back), so we start on Page 2 (Right)
             
             for suggestion in suggestions {
                 // Find which group this suggestion belongs to
                 let suggestionGroupIndex = findGroupIndex(for: suggestion.photos, in: detectedEvents)
                 
-                // EVENT ISOLATION: If group changed, start on a new spread
-                if suggestionGroupIndex != currentGroupIndex {
-                    // Start new spread for new group
+                // EVENT ISOLATION: If group changed and we aren't at the start of a spread, jump to next spread
+                if suggestionGroupIndex != currentGroupIndex && nextIsLeft == false && currentGroupIndex != -1 {
                     editorState.bookStructure.addInnerSpread()
                     currentSpreadIndex = editorState.bookStructure.innerSpreads.count - 1
-                    isLeft = true
-                    currentGroupIndex = suggestionGroupIndex
+                    nextIsLeft = true
                 }
                 
-                // Ensure we have a spread to work with
-                if currentSpreadIndex < 0 {
-                    editorState.bookStructure.addInnerSpread()
-                    currentSpreadIndex = editorState.bookStructure.innerSpreads.count - 1
-                    isLeft = true
-                }
+                currentGroupIndex = suggestionGroupIndex
+                
+
                 
                 // Get classified photos for this page
                 let pageClassifiedPhotos = suggestion.photos.compactMap { photo in
@@ -651,23 +794,28 @@ struct SmartImportView: View {
                     }
                 }
                 
-                // Assign to book
-                if isLeft {
+                // Assign to book and advance
+                if nextIsLeft {
                     editorState.bookStructure.innerSpreads[currentSpreadIndex].left.layers = newLayers
-                    isLeft = false
+                    nextIsLeft = false
                 } else {
                     editorState.bookStructure.innerSpreads[currentSpreadIndex].right.layers = newLayers
-                    // Mark that we need a new spread for next page
-                    isLeft = true
-                    currentSpreadIndex = -1
+                    // After filling a right page, we always prepare the next spread
+                    editorState.bookStructure.addInnerSpread()
+                    currentSpreadIndex = editorState.bookStructure.innerSpreads.count - 1
+                    nextIsLeft = true
                 }
             }
             
-            // Cleanup: Remove last spread if it's completely empty
-            if let lastSpread = editorState.bookStructure.innerSpreads.last,
-               lastSpread.left.layers.isEmpty && lastSpread.right.layers.isEmpty,
-               editorState.bookStructure.innerSpreads.count > 1 {
-                editorState.bookStructure.innerSpreads.removeLast()
+            // Cleanup: Remove last spread ONLY if it is empty AND its removal wouldn't hide filled content (because the right page of the last spread is always a placeholder)
+            if editorState.bookStructure.innerSpreads.count > 1 {
+                let last = editorState.bookStructure.innerSpreads.last!
+                if last.left.layers.isEmpty && last.right.layers.isEmpty {
+                    let previous = editorState.bookStructure.innerSpreads[editorState.bookStructure.innerSpreads.count - 2]
+                    if previous.right.layers.isEmpty {
+                        editorState.bookStructure.innerSpreads.removeLast()
+                    }
+                }
             }
             
             // Force UI refresh - navigate to first spread

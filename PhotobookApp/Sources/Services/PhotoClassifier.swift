@@ -654,36 +654,50 @@ class PhotoClassifier: ObservableObject {
             self.locationGroups = []
         }
         
-        // 1. Create Photo objects and read EXIF
+        // 1. Create Photo objects and read EXIF in parallel
         var photos: [Photo] = []
-        for (_, url) in urls.enumerated() {
-            var photo = Photo(url: url)
-            
-            // Basic metadata extraction
-            if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
-                
-                // GPS
-                if let gps = properties[kCGImagePropertyGPSDictionary as String] as? [String: Any],
-                   let lat = gps[kCGImagePropertyGPSLatitude as String] as? Double,
-                   let lon = gps[kCGImagePropertyGPSLongitude as String] as? Double {
-                    // Note: Simplifying ref checks for brevity
-                    let latRef = gps[kCGImagePropertyGPSLatitudeRef as String] as? String ?? "N"
-                    let lonRef = gps[kCGImagePropertyGPSLongitudeRef as String] as? String ?? "E"
-                    photo.latitude = (latRef == "S") ? -lat : lat
-                    photo.longitude = (lonRef == "W") ? -lon : lon
-                }
-                
-                // Date
-                if let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any],
-                   let dateString = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
-                    photo.dateTaken = formatter.date(from: dateString)
+        _ = urls.count
+        
+        // Parallel metadata extraction
+        photos = await withTaskGroup(of: Photo.self) { group in
+            for url in urls {
+                group.addTask {
+                    var photo = Photo(url: url)
+                    // Basic metadata extraction
+                    if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+                        
+                        // GPS
+                        if let gps = properties[kCGImagePropertyGPSDictionary as String] as? [String: Any],
+                           let lat = gps[kCGImagePropertyGPSLatitude as String] as? Double,
+                           let lon = gps[kCGImagePropertyGPSLongitude as String] as? Double {
+                            let latRef = gps[kCGImagePropertyGPSLatitudeRef as String] as? String ?? "N"
+                            let lonRef = gps[kCGImagePropertyGPSLongitudeRef as String] as? String ?? "E"
+                            photo.latitude = (latRef == "S") ? -lat : lat
+                            photo.longitude = (lonRef == "W") ? -lon : lon
+                        }
+                        
+                        // Date
+                        if let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any],
+                           let dateString = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
+                            let formatter = DateFormatter()
+                            formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+                            photo.dateTaken = formatter.date(from: dateString)
+                        }
+                    }
+                    return photo
                 }
             }
-            photos.append(photo)
+            
+            var results: [Photo] = []
+            for await photo in group {
+                results.append(photo)
+            }
+            return results
         }
+        
+        // Sort to maintain order if possible, though not strictly required
+        photos.sort { $0.url.path < $1.url.path }
         
         // 2. Classify Scenes & Detect Faces (and update progress)
         let classified = await classifyPhotos(photos) { progress, status in
@@ -713,53 +727,89 @@ class PhotoClassifier: ObservableObject {
     
     /// Classify a batch of photos
     func classifyPhotos(_ photos: [Photo], progressHandler: ((Double, String) -> Void)? = nil) async -> [ClassifiedPhoto] {
-        var results: [ClassifiedPhoto] = []
         let total = photos.count
+        var finishedCount = 0
         
-        for (index, photo) in photos.enumerated() {
-            // Update progress
-            let progress = Double(index + 1) / Double(total)
-            await MainActor.run {
-                self.progress = progress
-                self.currentStatus = "分析照片 \(index + 1)/\(total)"
-            }
-            progressHandler?(progress, "分析照片 \(index + 1)/\(total)")
+        // Use a task group with a concurrency limit to avoid memory spikes
+        let results = await withTaskGroup(of: ClassifiedPhoto?.self) { group in
+            var allResults: [ClassifiedPhoto] = []
+            let concurrencyLimit = 4
             
-            // Load image
-            guard let nsImage = NSImage(contentsOf: photo.url),
-                  let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                results.append(ClassifiedPhoto(photo: photo))
-                continue
+            // Initial batch
+            for i in 0..<min(concurrencyLimit, total) {
+                let photo = photos[i]
+                group.addTask { [weak self] in
+                    return await self?.processSinglePhoto(photo)
+                }
             }
             
-            // Classify scene
-            let scene = await classifyScene(cgImage)
-            
-            // Detect faces
-            let faces = await detectFaces(cgImage)
-            
-            // Assess quality
-            let quality = await assessQuality(cgImage)
-            
-            // Create classified photo
-            var classified = ClassifiedPhoto(
-                photo: photo,
-                sceneCategory: scene,
-                qualityScore: quality
-            )
-            classified.hasFaces = !faces.isEmpty
-            classified.faceCount = faces.count
-            
-            results.append(classified)
+            var nextIndex = concurrencyLimit
+            for await result in group {
+                finishedCount += 1
+                if let result = result {
+                    allResults.append(result)
+                }
+                
+                // Update progress on main thread
+                let currentProgress = Double(finishedCount) / Double(total)
+                let status = "分析照片 \(finishedCount)/\(total)"
+                Task { @MainActor [weak self] in
+                    self?.progress = currentProgress
+                    self?.currentStatus = status
+                }
+                progressHandler?(currentProgress, status)
+                
+                // Add next task
+                if nextIndex < total {
+                    let photo = photos[nextIndex]
+                    group.addTask { [weak self] in
+                        return await self?.processSinglePhoto(photo)
+                    }
+                    nextIndex += 1
+                }
+            }
+            return allResults
         }
         
-            await MainActor.run {
-                self.isProcessing = false
-                self.progress = 1.0
-                self.currentStatus = "分析完成"
-            }
+        await MainActor.run {
+            self.isProcessing = false
+            self.progress = 1.0
+            self.currentStatus = "分析完成"
+        }
         
         return results
+    }
+
+    /// Process a single photo: scene, faces, and quality
+    private func processSinglePhoto(_ photo: Photo) async -> ClassifiedPhoto {
+        // Optimization: Use a small thumbnail for Vision instead of full image
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 512 // Vision usually prefers around 300-500px
+        ]
+        
+        guard let source = CGImageSourceCreateWithURL(photo.url as CFURL, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return ClassifiedPhoto(photo: photo)
+        }
+        
+        // Perform analyses (these are async but sequential for a single image)
+        async let scene = classifyScene(cgImage)
+        async let faces = detectFaces(cgImage)
+        async let quality = assessQuality(cgImage)
+        
+        let (resolvedScene, resolvedFaces, resolvedQuality) = await (scene, faces, quality)
+        
+        var classified = ClassifiedPhoto(
+            photo: photo,
+            sceneCategory: resolvedScene,
+            qualityScore: resolvedQuality
+        )
+        classified.hasFaces = !resolvedFaces.isEmpty
+        classified.faceCount = resolvedFaces.count
+        
+        return classified
     }
     
     // MARK: - Smart Grouping

@@ -45,7 +45,6 @@ struct PhotoLayerElement: View {
     let layer: PhotoLayer
     
     @State private var filteredImage: NSImage?
-    @State private var originalImageSize: CGSize = .zero
     
     /// 检查是否进行了裁切（不是完整图片）
     private var isCropped: Bool {
@@ -58,31 +57,55 @@ struct PhotoLayerElement: View {
         return !isFullImage
     }
     
+    @ViewBuilder
+    private func photoContent(image: Image, geometry: GeometryProxy) -> some View {
+        if isCropped, let normRect = layer.normalizedCropRect {
+            // 绝对几何映射法 (Absolute Geometry Mapping)
+            // 绕过 .fill 的黑盒，直接建立物理坐标映射
+            //
+            // 原理：
+            // - normRect 是裁剪区域在原图中的归一化坐标 (0-1)
+            // - 我们需要让 normRect 指定的区域精确填满 frame
+            //
+            // 计算：
+            // - 渲染宽度 = frame.width / normRect.width
+            // - 渲染高度 = frame.height / normRect.height
+            // - offsetX = -(normRect.origin.x * 渲染宽度)
+            // - offsetY = -(normRect.origin.y * 渲染高度)
+            //
+            // 这样图片左上角对齐到 frame 左上角，然后通过偏移让裁剪区域可见
+            
+            let renderWidth = geometry.size.width / normRect.width
+            let renderHeight = geometry.size.height / normRect.height
+            
+            let offsetX = -(normRect.origin.x * renderWidth)
+            let offsetY = -(normRect.origin.y * renderHeight)
+            
+            image
+                .resizable()
+                .frame(width: renderWidth, height: renderHeight)
+                .offset(x: offsetX, y: offsetY)
+                .rotationEffect(.degrees(layer.cropRotation))
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                .clipped()
+        } else {
+            // 默认FIT模式：完整显示照片
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             Group {
                 if let filtered = filteredImage {
-                    croppedImageView(nsImage: filtered, frameSize: geometry.size)
+                    photoContent(image: Image(nsImage: filtered), geometry: geometry)
                 } else {
                     AsyncImage(url: layer.photoUrl) { phase in
                         if let image = phase.image {
-                            if isCropped {
-                                // 裁剪模式：显示裁剪区域填满整个frame
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .rotationEffect(.degrees(layer.cropRotation))
-                                    .scaleEffect(layer.cropScale)
-                                    .offset(layer.cropOffset)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                                    .clipped()
-                            } else {
-                                // 默认FIT模式：完整显示照片
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                            }
+                            photoContent(image: image, geometry: geometry)
                         } else {
                             Color.gray.opacity(0.3)
                         }
@@ -109,27 +132,6 @@ struct PhotoLayerElement: View {
         .onChange(of: layer.vignetteIntensity) { _, _ in loadFilteredImage() }
         .onChange(of: layer.sharpenIntensity) { _, _ in loadFilteredImage() }
         .onChange(of: layer.temperature) { _, _ in loadFilteredImage() }
-    }
-    
-    @ViewBuilder
-    private func croppedImageView(nsImage: NSImage, frameSize: CGSize) -> some View {
-        if isCropped {
-            // 裁剪模式
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .rotationEffect(.degrees(layer.cropRotation))
-                .scaleEffect(layer.cropScale)
-                .offset(layer.cropOffset)
-                .frame(width: frameSize.width, height: frameSize.height)
-                .clipped()
-        } else {
-            // 默认FIT模式
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: frameSize.width, height: frameSize.height)
-        }
     }
     
     @ViewBuilder

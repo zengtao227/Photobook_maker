@@ -139,6 +139,8 @@ public enum LocalizedKey {
     case leftPage
     case rightPage
     
+    case used
+    
     // Book Settings
     case bookSettings
     case bindingType
@@ -175,6 +177,7 @@ public enum LocalizedKey {
     
     // Page Management
     case pageManagement
+    case goToSpread
     case movePage
     case movePageTitle
     case movePageDescription
@@ -271,6 +274,42 @@ public enum LocalizedKey {
     case done
     case swapLeftRight
     
+    // Photo Navigation
+    case navigateToFrontCover
+    case navigateToBackCover
+    case navigateToSpread(Int)
+    case goToPhotoUsage
+    
+    case smartImport
+
+    case smartImportWizard
+    case selectPhotoSource
+    case folder
+    case selectPhotos
+    case photoLibrary
+    case icloud
+    case analyzingPhotos
+    case analyzingFeatures
+    case smartGroupingSuggestions
+    case finishEditing
+    case deleteSelectedCount(Int)
+    case statistics
+    case analyzedPhotosCount(Int)
+    case detectedFacesCount(Int)
+    case locationGroupsCount(Int)
+    case chooseDesignStyle
+    case prioritySmartTemplate
+    case generatingLayout
+    case previousStep
+    case nextStepLayout
+    case startGenerating
+    case library
+    case selectedCount(Int)
+    case clearSelection
+    case searchPhotos
+    case noPhotos
+    case clickImportHelp
+    
     public var chinese: String {
         switch self {
         case .appName: return "照片书"
@@ -344,6 +383,7 @@ public enum LocalizedKey {
         
         // Page Management
         case .pageManagement: return "页面管理"
+        case .goToSpread: return "跳转到页面"
         case .movePage: return "移动页面"
         case .movePageTitle: return "移动页面"
         case .movePageDescription: return "将第 m 页移动到第 n 页之前"
@@ -403,6 +443,7 @@ public enum LocalizedKey {
         case .shadow: return "阴影"
         case .blurRadius: return "模糊半径"
         case .opacity: return "透明度"
+        case .used: return "已使用"
         case .filter: return "滤镜"
         case .crop: return "裁剪"
         case .textSettings: return "文字设置"
@@ -429,6 +470,42 @@ public enum LocalizedKey {
         case .importCustomSticker: return "导入自定义贴纸..."
         case .done: return "完成"
         case .swapLeftRight: return "交换左右页"
+        
+        // Photo Navigation
+        case .navigateToFrontCover: return "前往封面"
+        case .navigateToBackCover: return "前往封底"
+        case .navigateToSpread(let index): return "前往第 \(index) 跨页"
+        case .goToPhotoUsage: return "前往使用此照片的页面"
+        
+        // Smart Import
+        case .smartImport: return "智能导入"
+        case .smartImportWizard: return "智能导入向导"
+        case .selectPhotoSource: return "选择照片来源"
+        case .folder: return "文件夹"
+        case .selectPhotos: return "选择照片"
+        case .photoLibrary: return "照片库"
+        case .icloud: return "iCloud"
+        case .analyzingPhotos: return "正在分析照片..."
+        case .analyzingFeatures: return "正在本地分析照片特征...\n(场景识别 / 人脸检测 / 质量评估)"
+        case .smartGroupingSuggestions: return "智能分组建议"
+        case .finishEditing: return "完成编辑"
+        case .deleteSelectedCount(let count): return "删除选中 (\(count))"
+        case .statistics: return "统计信息"
+        case .analyzedPhotosCount(let count): return "已分析照片: \(count) 张"
+        case .detectedFacesCount(let count): return "识别人脸: \(count) 组"
+        case .locationGroupsCount(let count): return "地点分组: \(count) 个"
+        case .chooseDesignStyle: return "选择整书设计风格"
+        case .prioritySmartTemplate: return "优先使用智能推荐模板"
+        case .generatingLayout: return "正在生成相册排版..."
+        case .previousStep: return "上一步"
+        case .nextStepLayout: return "下一步: 布局风格"
+        case .startGenerating: return "开始生成"
+        case .library: return "媒体库"
+        case .selectedCount(let count): return "(已选 \(count))"
+        case .clearSelection: return "清除"
+        case .searchPhotos: return "搜索照片..."
+        case .noPhotos: return "暂无照片"
+        case .clickImportHelp: return "点击 + 导入文件夹或使用智能导入"
         }
     }
     
@@ -505,6 +582,7 @@ public enum LocalizedKey {
         
         // Page Management
         case .pageManagement: return "Page Management"
+        case .goToSpread: return "Go to Page"
         case .movePage: return "Move Page"
         case .movePageTitle: return "Move Page"
         case .movePageDescription: return "Move page m to before page n"
@@ -564,6 +642,7 @@ public enum LocalizedKey {
         case .shadow: return "Shadow"
         case .blurRadius: return "Blur Radius"
         case .opacity: return "Opacity"
+        case .used: return "Used"
         case .filter: return "Filter"
         case .crop: return "Crop"
         case .textSettings: return "Text Settings"
@@ -590,6 +669,42 @@ public enum LocalizedKey {
         case .importCustomSticker: return "Import Custom Sticker..."
         case .done: return "Done"
         case .swapLeftRight: return "Swap Left/Right"
+        
+        // Photo Navigation
+        case .navigateToFrontCover: return "Go to Front Cover"
+        case .navigateToBackCover: return "Go to Back Cover"
+        case .navigateToSpread(let index): return "Go to Spread \(index)"
+        case .goToPhotoUsage: return "Go to Photo Usage"
+        
+        // Smart Import
+        case .smartImport: return "Smart Import"
+        case .smartImportWizard: return "Smart Import Wizard"
+        case .selectPhotoSource: return "Select Photo Source"
+        case .folder: return "Folder"
+        case .selectPhotos: return "Select Photos"
+        case .photoLibrary: return "Photo Library"
+        case .icloud: return "iCloud"
+        case .analyzingPhotos: return "Analyzing photos..."
+        case .analyzingFeatures: return "Analyzing photo features locally...\n(Scene / Face / Quality)"
+        case .smartGroupingSuggestions: return "Smart Grouping Suggestions"
+        case .finishEditing: return "Finish Editing"
+        case .deleteSelectedCount(let count): return "Delete Selected (\(count))"
+        case .statistics: return "Statistics"
+        case .analyzedPhotosCount(let count): return "Analyzed Photos: \(count)"
+        case .detectedFacesCount(let count): return "Detected Faces: \(count) groups"
+        case .locationGroupsCount(let count): return "Location Groups: \(count)"
+        case .chooseDesignStyle: return "Choose Design Style"
+        case .prioritySmartTemplate: return "Prioritize smart recommendations"
+        case .generatingLayout: return "Generating layout..."
+        case .previousStep: return "Previous"
+        case .nextStepLayout: return "Next: Layout Style"
+        case .startGenerating: return "Start Generating"
+        case .library: return "Library"
+        case .selectedCount(let count): return "(\(count) selected)"
+        case .clearSelection: return "Clear"
+        case .searchPhotos: return "Search photos..."
+        case .noPhotos: return "No Photos"
+        case .clickImportHelp: return "Click + to import or use Smart Import"
         }
     }
     
@@ -711,6 +826,7 @@ public enum LocalizedKey {
         case .shadow: return "Schatten"
         case .blurRadius: return "Unschärferadius"
         case .opacity: return "Deckkraft"
+        case .used: return "Verwendet"
         case .filter: return "Filter"
         case .crop: return "Zuschneiden"
         case .textSettings: return "Texteinstellungen"
@@ -738,6 +854,7 @@ public enum LocalizedKey {
         case .done: return "Fertig"
         case .swapLeftRight: return "Links/Rechts tauschen"
         case .pageManagement: return "Seitenverwaltung"
+        case .goToSpread: return "Gehe zu Spread"
         case .movePage: return "Seite verschieben"
         case .movePageTitle: return "Seite verschieben"
         case .movePageDescription: return "Seite m vor Seite n verschieben"
@@ -748,6 +865,42 @@ public enum LocalizedKey {
         case .move: return "Verschieben"
         case .undo: return "Rückgängig"
         case .redo: return "Wiederholen"
+        
+        // Photo Navigation
+        case .navigateToFrontCover: return "Zum Vorderdeckel"
+        case .navigateToBackCover: return "Zum Rückdeckel"
+        case .navigateToSpread(let index): return "Zu Doppelseite \(index)"
+        case .goToPhotoUsage: return "Zur Fotoverwendung"
+        
+        // Smart Import
+        case .smartImport: return "Intelligenter Import"
+        case .smartImportWizard: return "Intelligenter Import-Assistent"
+        case .selectPhotoSource: return "Fotoquelle auswählen"
+        case .folder: return "Ordner"
+        case .selectPhotos: return "Fotos auswählen"
+        case .photoLibrary: return "Fotomediathek"
+        case .icloud: return "iCloud"
+        case .analyzingPhotos: return "Fotos werden analysiert..."
+        case .analyzingFeatures: return "Foto-Features werden lokal analysiert...\n(Szene / Gesicht / Qualität)"
+        case .smartGroupingSuggestions: return "Intelligente Gruppierungsvorschläge"
+        case .finishEditing: return "Bearbeitung abschließen"
+        case .deleteSelectedCount(let count): return "Ausgewählte löschen (\(count))"
+        case .statistics: return "Statistik"
+        case .analyzedPhotosCount(let count): return "Analysierte Fotos: \(count)"
+        case .detectedFacesCount(let count): return "Erkannte Gesichter: \(count) Gruppen"
+        case .locationGroupsCount(let count): return "Standortgruppen: \(count)"
+        case .chooseDesignStyle: return "Designstil wählen"
+        case .prioritySmartTemplate: return "Intelligente Empfehlungen bevorzugen"
+        case .generatingLayout: return "Layout wird generiert..."
+        case .previousStep: return "Zurück"
+        case .nextStepLayout: return "Weiter: Layoutstil"
+        case .startGenerating: return "Generierung starten"
+        case .library: return "Mediathek"
+        case .selectedCount(let count): return "(\(count) ausgewählt)"
+        case .clearSelection: return "Leeren"
+        case .searchPhotos: return "Fotos suchen..."
+        case .noPhotos: return "Keine Fotos"
+        case .clickImportHelp: return "Klicken Sie auf +, um zu importieren oder Smart Import zu nutzen"
         }
     }
     
@@ -822,6 +975,7 @@ public enum LocalizedKey {
         case .innerSpreadLabel(let index): return "Double page \(index)"
         case .fullCoverWrap: return "Couverture complète"
         case .pageManagement: return "Gestion des pages"
+        case .goToSpread: return "Aller à la double page"
         case .movePage: return "Déplacer la page"
         case .movePageTitle: return "Déplacer la page"
         case .movePageDescription: return "Déplacer la page m avant la page n"
@@ -880,6 +1034,7 @@ public enum LocalizedKey {
         case .shadow: return "Ombre"
         case .blurRadius: return "Rayon de flou"
         case .opacity: return "Opacité"
+        case .used: return "Utilisé"
         case .filter: return "Filtre"
         case .crop: return "Recadrer"
         case .textSettings: return "Paramètres de texte"
@@ -906,6 +1061,42 @@ public enum LocalizedKey {
         case .importCustomSticker: return "Importer un autocollant personnalisé..."
         case .done: return "Terminé"
         case .swapLeftRight: return "Échanger gauche/droite"
+        
+        // Photo Navigation
+        case .navigateToFrontCover: return "Aller à la couverture avant"
+        case .navigateToBackCover: return "Aller à la couverture arrière"
+        case .navigateToSpread(let index): return "Aller à la double page \(index)"
+        case .goToPhotoUsage: return "Aller à l'utilisation de la photo"
+        
+        // Smart Import
+        case .smartImport: return "Importation intelligente"
+        case .smartImportWizard: return "Assistant d'importation intelligente"
+        case .selectPhotoSource: return "Sélectionner la source des photos"
+        case .folder: return "Dossier"
+        case .selectPhotos: return "Sélectionner des photos"
+        case .photoLibrary: return "Photothèque"
+        case .icloud: return "iCloud"
+        case .analyzingPhotos: return "Analyse des photos..."
+        case .analyzingFeatures: return "Analyse locale des caractéristiques des photos...\n(Scène / Visage / Qualité)"
+        case .smartGroupingSuggestions: return "Suggestions de groupage intelligent"
+        case .finishEditing: return "Terminer l'édition"
+        case .deleteSelectedCount(let count): return "Supprimer la sélection (\(count))"
+        case .statistics: return "Statistiques"
+        case .analyzedPhotosCount(let count): return "Photos analysées: \(count)"
+        case .detectedFacesCount(let count): return "Visages détectés: \(count) groupes"
+        case .locationGroupsCount(let count): return "Groupes de lieux: \(count)"
+        case .chooseDesignStyle: return "Choisir le style de design"
+        case .prioritySmartTemplate: return "Prioriser les recommandations intelligentes"
+        case .generatingLayout: return "Génération de la mise en page..."
+        case .previousStep: return "Précédent"
+        case .nextStepLayout: return "Suivant: Style de mise en page"
+        case .startGenerating: return "Démarrer la génération"
+        case .library: return "Médiathèque"
+        case .selectedCount(let count): return "(\(count) sélectionné)"
+        case .clearSelection: return "Effacer"
+        case .searchPhotos: return "Rechercher des photos..."
+        case .noPhotos: return "Pas de photos"
+        case .clickImportHelp: return "Cliquez sur + pour importer ou utiliser l'importation intelligente"
         }
     }
 }

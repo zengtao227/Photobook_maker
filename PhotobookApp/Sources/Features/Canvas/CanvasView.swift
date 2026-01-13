@@ -470,7 +470,10 @@ struct BookPage: View {
     private var tapToDeselectLayer: some View {
         Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { editorState.deselect() }
+            .onTapGesture { 
+                editorState.deselect()
+                editorState.activePageSide = isLeft ? .left : .right
+            }
             .allowsHitTesting(true)
             .zIndex(-1)
     }
@@ -709,6 +712,7 @@ struct BookPage: View {
     
     private func handleDrop(items: [URL], location: CGPoint, scale: CGFloat) -> Bool {
         guard pageModel.pageNumber != -98 && pageModel.pageNumber != -99 else { return false }
+        if pageModel.pageNumber == 1 { return false } // Reserved: Cover Back
         if pageModel.pageNumber == 0 && !isLeft { return false }
         if pageModel.pageNumber == -1 && isLeft { return false }
         guard let url = items.first else { return false }

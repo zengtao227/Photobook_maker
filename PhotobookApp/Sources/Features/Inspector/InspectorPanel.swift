@@ -10,6 +10,8 @@ struct InspectorPanel: View {
     @State private var stickerTargetIsLeft = true
     @State private var showBackgroundPicker = false
     @State private var backgroundTargetIsLeft = true
+
+
     
     var body: some View {
         ScrollView {
@@ -163,6 +165,10 @@ struct InspectorPanel: View {
                     .frame(width: 120)
                 }
             }
+            
+            Divider()
+            
+
         }
         .padding()
         .background(themeManager.theme.backgroundColor.opacity(0.5))
@@ -252,6 +258,9 @@ struct InspectorPanel: View {
             // Page count info
             Divider()
             
+
+
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("\(localization.localized(.totalPagesLabel)):")

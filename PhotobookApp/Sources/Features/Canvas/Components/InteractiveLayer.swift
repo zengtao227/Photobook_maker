@@ -6,6 +6,7 @@ struct InteractiveLayer: View {
     let scale: CGFloat
     let logicalPageSize: CGSize
     @Environment(EditorState.self) private var editorState
+    @Environment(LocalizationManager.self) private var localization
     
     @State private var transientFrame: CGRect? = nil
     @State private var transientRotation: Double? = nil
@@ -93,7 +94,12 @@ extension InteractiveLayer {
         .zIndex(isCropping ? 9999 : (Double(photoLayer.zIndex) + (isSelected ? 100 : 0)))
         .highPriorityGesture(TapGesture(count: 2).onEnded { editorState.startCropping(photoLayer.id) })
         .gesture(photoDragGesture(photoLayer: photoLayer, isSelected: isSelected, isCropping: isCropping, rotation: rotation))
-        .simultaneousGesture(TapGesture().onEnded { if !isCropping { editorState.selectLayer(photoLayer.id) } })
+        .simultaneousGesture(TapGesture().onEnded { 
+            if !isCropping { 
+                editorState.selectLayer(photoLayer.id)
+                editorState.activePageSide = isLeftPage ? .left : .right
+            } 
+        })
         .contextMenu { photoContextMenu(photoLayer) }
     }
     
@@ -123,14 +129,51 @@ extension InteractiveLayer {
     
     @ViewBuilder
     private func photoContextMenu(_ photoLayer: PhotoLayer) -> some View {
-        Button { editorState.moveLayerToFront(photoLayer.id) } label: { Label("移到最前", systemImage: "square.3.layers.3d.top.filled") }
-        Button { editorState.moveLayerForward(photoLayer.id) } label: { Label("前移一层", systemImage: "arrow.up.square") }
-        Button { editorState.moveLayerBackward(photoLayer.id) } label: { Label("后移一层", systemImage: "arrow.down.square") }
-        Button { editorState.moveLayerToBack(photoLayer.id) } label: { Label("移到最后", systemImage: "square.3.layers.3d.bottom.filled") }
+        Button { editorState.cutSelectedLayer() } label: { 
+            Label(localization.localized(.cut), systemImage: "scissors") 
+        }
+        .keyboardShortcut("x", modifiers: .command)
+        
+        Button { editorState.copySelectedLayer() } label: { 
+            Label(localization.localized(.copy), systemImage: "doc.on.doc") 
+        }
+        .keyboardShortcut("c", modifiers: .command)
+        
+        Button { editorState.duplicateSelectedLayer() } label: { 
+            Label(localization.localized(.duplicate), systemImage: "plus.square.on.square") 
+        }
+        .keyboardShortcut("d", modifiers: .command)
+        
         Divider()
-        Button { editorState.startCropping(photoLayer.id) } label: { Label("裁剪", systemImage: "crop") }
-        Button { editorState.startFiltering(photoLayer.id) } label: { Label("滤镜", systemImage: "camera.filters") }
-        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { Label("删除", systemImage: "trash") }
+        
+        Button { editorState.moveLayerToFront(photoLayer.id) } label: { 
+            Label(localization.localized(.bringToFront), systemImage: "square.3.layers.3d.top.filled") 
+        }
+        Button { editorState.moveLayerForward(photoLayer.id) } label: { 
+            Label(localization.localized(.bringForward), systemImage: "arrow.up.square") 
+        }
+        Button { editorState.moveLayerBackward(photoLayer.id) } label: { 
+            Label(localization.localized(.sendBackward), systemImage: "arrow.down.square") 
+        }
+        Button { editorState.moveLayerToBack(photoLayer.id) } label: { 
+            Label(localization.localized(.sendToBack), systemImage: "square.3.layers.3d.bottom.filled") 
+        }
+        
+        Divider()
+        
+        Button { editorState.startCropping(photoLayer.id) } label: { 
+            Label(localization.localized(.crop), systemImage: "crop") 
+        }
+        Button { editorState.startFiltering(photoLayer.id) } label: { 
+            Label(localization.localized(.filter), systemImage: "camera.filters") 
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { 
+            Label(localization.localized(.delete), systemImage: "trash") 
+        }
+        .keyboardShortcut(.delete, modifiers: [])
     }
 }
 
@@ -210,12 +253,42 @@ extension InteractiveLayer {
     
     @ViewBuilder
     private func textContextMenu(_ textLayer: TextLayer) -> some View {
-        Button { editorState.startTextEditing(textLayer.id) } label: { Label("编辑文字", systemImage: "pencil") }
+        Button { editorState.startTextEditing(textLayer.id) } label: { 
+            Label(localization.localized(.editText), systemImage: "pencil") 
+        }
+        
         Divider()
-        Button { editorState.moveLayerToFront(textLayer.id) } label: { Label("移到最前", systemImage: "square.3.layers.3d.top.filled") }
-        Button { editorState.moveLayerToBack(textLayer.id) } label: { Label("移到最后", systemImage: "square.3.layers.3d.bottom.filled") }
+        
+        Button { editorState.cutSelectedLayer() } label: { 
+            Label(localization.localized(.cut), systemImage: "scissors") 
+        }
+        .keyboardShortcut("x", modifiers: .command)
+        
+        Button { editorState.copySelectedLayer() } label: { 
+            Label(localization.localized(.copy), systemImage: "doc.on.doc") 
+        }
+        .keyboardShortcut("c", modifiers: .command)
+        
+        Button { editorState.duplicateSelectedLayer() } label: { 
+            Label(localization.localized(.duplicate), systemImage: "plus.square.on.square") 
+        }
+        .keyboardShortcut("d", modifiers: .command)
+        
         Divider()
-        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { Label("删除", systemImage: "trash") }
+        
+        Button { editorState.moveLayerToFront(textLayer.id) } label: { 
+            Label(localization.localized(.bringToFront), systemImage: "square.3.layers.3d.top.filled") 
+        }
+        Button { editorState.moveLayerToBack(textLayer.id) } label: { 
+            Label(localization.localized(.sendToBack), systemImage: "square.3.layers.3d.bottom.filled") 
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { 
+            Label(localization.localized(.delete), systemImage: "trash") 
+        }
+        .keyboardShortcut(.delete, modifiers: [])
     }
 }
 
@@ -282,9 +355,35 @@ extension InteractiveLayer {
     
     @ViewBuilder
     private func stickerContextMenu(_ stickerLayer: StickerLayer) -> some View {
-        Button { editorState.moveLayerToFront(stickerLayer.id) } label: { Label("移到最前", systemImage: "square.3.layers.3d.top.filled") }
-        Button { editorState.moveLayerToBack(stickerLayer.id) } label: { Label("移到最后", systemImage: "square.3.layers.3d.bottom.filled") }
+        Button { editorState.cutSelectedLayer() } label: { 
+            Label(localization.localized(.cut), systemImage: "scissors") 
+        }
+        .keyboardShortcut("x", modifiers: .command)
+        
+        Button { editorState.copySelectedLayer() } label: { 
+            Label(localization.localized(.copy), systemImage: "doc.on.doc") 
+        }
+        .keyboardShortcut("c", modifiers: .command)
+        
+        Button { editorState.duplicateSelectedLayer() } label: { 
+            Label(localization.localized(.duplicate), systemImage: "plus.square.on.square") 
+        }
+        .keyboardShortcut("d", modifiers: .command)
+        
         Divider()
-        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { Label("删除", systemImage: "trash") }
+        
+        Button { editorState.moveLayerToFront(stickerLayer.id) } label: { 
+            Label(localization.localized(.bringToFront), systemImage: "square.3.layers.3d.top.filled") 
+        }
+        Button { editorState.moveLayerToBack(stickerLayer.id) } label: { 
+            Label(localization.localized(.sendToBack), systemImage: "square.3.layers.3d.bottom.filled") 
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) { editorState.deleteSelectedLayer() } label: { 
+            Label(localization.localized(.delete), systemImage: "trash") 
+        }
+        .keyboardShortcut(.delete, modifiers: [])
     }
 }

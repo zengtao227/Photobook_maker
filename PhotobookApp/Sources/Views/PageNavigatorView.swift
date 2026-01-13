@@ -10,6 +10,7 @@ struct PageNavigatorView: View {
     @State private var showMoveDialog = false
     @State private var moveFromPage = ""
     @State private var moveToPage = ""
+    @State private var targetJumpPage: Int = 1
     
     var body: some View {
         VStack(spacing: 0) {
@@ -79,6 +80,32 @@ struct PageNavigatorView: View {
                 .disabled(!editorState.canRedo)
                 .help("\(localization.localized(.redo)) (⌘⇧Z)")
             }
+
+            // Go to Page
+            HStack(spacing: 8) {
+                TextField("", value: $targetJumpPage, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 45)
+                    .onSubmit {
+                        let totalPages = editorState.spreadCount * 2
+                        if targetJumpPage >= 1 && targetJumpPage <= totalPages {
+                            let spreadIndex = (targetJumpPage - 1) / 2
+                            editorState.navigateToSpread(spreadIndex)
+                        }
+                    }
+                
+                Button("Go") {
+                    let totalPages = editorState.spreadCount * 2
+                    if targetJumpPage >= 1 && targetJumpPage <= totalPages {
+                        let spreadIndex = (targetJumpPage - 1) / 2
+                        editorState.navigateToSpread(spreadIndex)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(targetJumpPage < 1 || targetJumpPage > editorState.spreadCount * 2)
+            }
+            .padding(.horizontal, 4)
             
             Spacer()
             

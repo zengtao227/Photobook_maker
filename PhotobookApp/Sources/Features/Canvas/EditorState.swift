@@ -25,7 +25,12 @@ public enum EditorNavigationTarget: Equatable {
 public class EditorState {
     // Current Spread State
     public var leftPage: PageModel
+
     public var rightPage: PageModel
+    
+    // Track active page side for single page operations (e.g. Delete Page)
+    public enum PageSide { case left, right }
+    public var activePageSide: PageSide = .left // Default to left
     
     // MARK: - Layer Management
     private let archiveManager = PhotobookArchiveManager()
@@ -40,10 +45,11 @@ public class EditorState {
     public var updateCounter: Int = 0 // Force UI refresh
     
     // MARK: - Undo/Redo Support
-    
+    public var undoManager: UndoManager? // Bridged from SwiftUI/UIKit/AppKit
     private var undoStack: [BookStructure] = []
     private var redoStack: [BookStructure] = []
     private let maxUndoSteps = 50
+
     
     // MARK: - Clipboard Support
     
@@ -149,17 +155,18 @@ public class EditorState {
     
     /// Save current state to undo stack before making changes
     public func saveUndoState() {
-        // Save current book structure
+        // 1. Save to internal stack
         undoStack.append(bookStructure)
-        
-        // Limit undo stack size
-        if undoStack.count > maxUndoSteps {
-            undoStack.removeFirst()
-        }
-        
-        // Clear redo stack when new action is performed
+        if undoStack.count > maxUndoSteps { undoStack.removeFirst() }
         redoStack.removeAll()
+        
+        // 2. Register with system UndoManager
+        undoManager?.registerUndo(withTarget: self) { target in
+            target.undo()
+        }
+        undoManager?.setActionName("Edit Action")
     }
+
     
     /// Undo last action
     public func undo() {
@@ -582,6 +589,7 @@ public class EditorState {
     }
     func deleteSelectedLayer() {
         guard let id = selectedLayerId else { return }
+        saveUndoState() // Save state before deleting
         leftPage.layers.removeAll { $0.id == id }
         rightPage.layers.removeAll { $0.id == id }
         selectedLayerId = nil
@@ -589,8 +597,134 @@ public class EditorState {
         updateCounter += 1
     }
     
+    /// Smart delete: deletes selected layer, or single blank page if applicable, or safe delete of spread
+    func smartDelete() {
+        if selectedLayerId != nil {
+            deleteSelectedLayer()
+            return
+        }
+        
+        // Try to delete single page based on LAST ACTIVE SIDE
+        // User intent: "I clicked this page, now delete it"
+        if case .innerSpread(let index) = currentTarget, bookStructure.innerSpreads.count > 0 {
+            // If active side is clear, delete that side.
+            // But wait, what if I just want to delete the whole spread?
+            // Usually, "Delete Page" means delete ONE page. 
+            // If both sides are active... well, one side is always "more" active.
+            
+            // Logic: Always delete the active single page.
+            if activePageSide == .left {
+                deleteSinglePage(at: index, isLeft: true)
+            } else {
+                deleteSinglePage(at: index, isLeft: false)
+            }
+        }
+    }
+    
+    /// Delete a single page and reflow content
+    public func deleteSinglePage(at spreadIndex: Int, isLeft: Bool) {
+        saveUndoState()
+        
+        // Step 1: Flatten content
+        var allContents: [(layers: [AnyLayer], bgColor: String, bgType: PageModel.BackgroundType, gradientColors: [String]?, patternType: String?, textureType: String?)] = []
+        
+        for spread in bookStructure.innerSpreads {
+            let pages = [spread.left, spread.right]
+            for page in pages {
+                allContents.append((
+                    layers: page.layers,
+                    bgColor: page.backgroundColorHex,
+                    bgType: page.backgroundType,
+                    gradientColors: page.gradientColors,
+                    patternType: page.patternType,
+                    textureType: page.textureType
+                ))
+            }
+        }
+        
+        // Step 2: Remove target
+        let indexToDelete = spreadIndex * 2 + (isLeft ? 0 : 1)
+        guard indexToDelete < allContents.count else { return }
+        
+        // PROTECTION: Never remove Page 1 (Cover Back) or Last Page (Inside Back Cover)
+        // Shifting these would cause photos to disappear into the placeholder-only slots.
+        if indexToDelete == 0 {
+            allContents[0].layers = []
+        } else if indexToDelete == allContents.count - 1 {
+            allContents[indexToDelete].layers = []
+        } else {
+            allContents.remove(at: indexToDelete)
+        }
+        
+        // Step 3: Rebuild spreads
+        // If the last page now has layers, we must add one more empty page 
+        // to ensure there's a placeholder-ready slot at the very end.
+        if let last = allContents.last, !last.layers.isEmpty {
+             allContents.append((layers: [], bgColor: "#FFFFFF", bgType: .solid, gradientColors: nil, patternType: nil, textureType: nil))
+        }
+        
+        let N = allContents.count
+        var newSpreads: [(left: PageModel, right: PageModel)] = []
+        
+        // Fill spreads, padding last if odd
+        let spreadCount = Int(ceil(Double(N) / 2.0))
+        
+        for i in 0..<spreadCount {
+            let leftIdx = i * 2
+            let rightIdx = i * 2 + 1
+            
+            var left = PageModel(pageNumber: i * 2 + 1)
+            if leftIdx < N {
+                let content = allContents[leftIdx]
+                left.layers = content.layers
+                left.backgroundColorHex = content.bgColor
+                left.backgroundType = content.bgType
+                left.gradientColors = content.gradientColors
+                left.patternType = content.patternType
+                left.textureType = content.textureType
+            }
+            
+            var right = PageModel(pageNumber: i * 2 + 2)
+            if rightIdx < N {
+                let content = allContents[rightIdx]
+                right.layers = content.layers
+                right.backgroundColorHex = content.bgColor
+                right.backgroundType = content.bgType
+                right.gradientColors = content.gradientColors
+                right.patternType = content.patternType
+                right.textureType = content.textureType
+            }
+            
+            newSpreads.append((left, right))
+        }
+        
+        // Update structure
+        bookStructure.innerSpreads = newSpreads
+        
+        // Ensure navigation is valid
+        if case .innerSpread(let currentIndex) = currentTarget {
+            if currentIndex >= newSpreads.count {
+                currentTarget = .innerSpread(index: max(0, newSpreads.count - 1))
+            }
+        }
+        
+        loadCurrentState()
+        lastModified = Date()
+        updateCounter += 1
+    }
+
+
+
+    
     /// Automatically arrange photos on the target page using AI templates
     func applySmartLayout(photos: [Photo], isLeftPage: Bool, pageSize: PageSize = .a5Landscape) {
+        // Block Page 1 (Cover Back) and Last Page (Inside Back Cover)?
+        // For now, let's at least block the very first page of the book.
+        if isLeftPage, case .innerSpread(let index) = currentTarget, index == 0 {
+            print("⚠️ Cannot apply smart layout to reserved Cover Back page.")
+            return
+        }
+        
         let result = autoLayoutEngine.layoutPhotos(photos, onPageSize: pageSize)
         
         // Target page
@@ -631,9 +765,11 @@ public class EditorState {
         if let idx = leftPage.layers.firstIndex(where: { $0.id == id }) {
             let layer = leftPage.layers.remove(at: idx)
             leftPage.layers.append(layer)
+            reindexLayers(isLeft: true)
         } else if let idx = rightPage.layers.firstIndex(where: { $0.id == id }) {
             let layer = rightPage.layers.remove(at: idx)
             rightPage.layers.append(layer)
+            reindexLayers(isLeft: false)
         }
         lastModified = Date()
         updateCounter += 1
@@ -644,9 +780,11 @@ public class EditorState {
         if let idx = leftPage.layers.firstIndex(where: { $0.id == id }) {
             let layer = leftPage.layers.remove(at: idx)
             leftPage.layers.insert(layer, at: 0)
+            reindexLayers(isLeft: true)
         } else if let idx = rightPage.layers.firstIndex(where: { $0.id == id }) {
             let layer = rightPage.layers.remove(at: idx)
             rightPage.layers.insert(layer, at: 0)
+            reindexLayers(isLeft: false)
         }
         lastModified = Date()
         updateCounter += 1
@@ -656,8 +794,10 @@ public class EditorState {
     func moveLayerForward(_ id: LayerID) {
         if let idx = leftPage.layers.firstIndex(where: { $0.id == id }), idx < leftPage.layers.count - 1 {
             leftPage.layers.swapAt(idx, idx + 1)
+            reindexLayers(isLeft: true)
         } else if let idx = rightPage.layers.firstIndex(where: { $0.id == id }), idx < rightPage.layers.count - 1 {
             rightPage.layers.swapAt(idx, idx + 1)
+            reindexLayers(isLeft: false)
         }
         lastModified = Date()
         updateCounter += 1
@@ -667,12 +807,38 @@ public class EditorState {
     func moveLayerBackward(_ id: LayerID) {
         if let idx = leftPage.layers.firstIndex(where: { $0.id == id }), idx > 0 {
             leftPage.layers.swapAt(idx, idx - 1)
+            reindexLayers(isLeft: true)
         } else if let idx = rightPage.layers.firstIndex(where: { $0.id == id }), idx > 0 {
             rightPage.layers.swapAt(idx, idx - 1)
+            reindexLayers(isLeft: false)
         }
         lastModified = Date()
         updateCounter += 1
     }
+    
+    /// Update zIndex property for all layers based on their array order
+    private func reindexLayers(isLeft: Bool) {
+        var layers = isLeft ? leftPage.layers : rightPage.layers
+        for (index, _) in layers.enumerated() {
+            var anyLayer = layers[index]
+            // We need to mutate the underlying protocol existential
+            // This is tricky with AnyLayer. We must check type.
+            if var photoLayer = anyLayer.layer as? PhotoLayer {
+                photoLayer.zIndex = index
+                anyLayer = AnyLayer(photoLayer)
+            } else if var textLayer = anyLayer.layer as? TextLayer {
+                textLayer.zIndex = index
+                anyLayer = AnyLayer(textLayer)
+            } else if var stickerLayer = anyLayer.layer as? StickerLayer {
+                stickerLayer.zIndex = index
+                anyLayer = AnyLayer(stickerLayer)
+            }
+            layers[index] = anyLayer
+        }
+        if isLeft { leftPage.layers = layers }
+        else { rightPage.layers = layers }
+    }
+
     
     // MARK: - System Sticker & Emoji Support
     
