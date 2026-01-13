@@ -587,36 +587,46 @@ struct BookPage: View {
         // Save to undo stack BEFORE making changes
         editorState.saveUndoState()
         
-        // Step 1: Flatten all 'real' contents (excluding placeholders)
+        // Step 1: Flatten all contents into a stream
         var allContents: [(layers: [AnyLayer], bgColor: String, bgType: PageModel.BackgroundType, gradientColors: [String]?, patternType: String?, textureType: String?)] = []
         
         for spread in editorState.bookStructure.innerSpreads {
-            // Include left page content if not a placeholder
-            allContents.append((
-                layers: spread.left.layers,
-                bgColor: spread.left.backgroundColorHex,
-                bgType: spread.left.backgroundType,
-                gradientColors: spread.left.gradientColors,
-                patternType: spread.left.patternType,
-                textureType: spread.left.textureType
-            ))
-            // Include right page content if not a placeholder
-            allContents.append((
-                layers: spread.right.layers,
-                bgColor: spread.right.backgroundColorHex,
-                bgType: spread.right.backgroundType,
-                gradientColors: spread.right.gradientColors,
-                patternType: spread.right.patternType,
-                textureType: spread.right.textureType
-            ))
+            let pages = [spread.left, spread.right]
+            for page in pages {
+                allContents.append((
+                    layers: page.layers,
+                    bgColor: page.backgroundColorHex,
+                    bgType: page.backgroundType,
+                    gradientColors: page.gradientColors,
+                    patternType: page.patternType,
+                    textureType: page.textureType
+                ))
+            }
+        }
+        
+        // Step 1.5: Vacuum - If the last spread has our specific "Left-Blank" placeholder,
+        // remove it from the content stream so it doesn't count as a real page in the next deletion.
+        if editorState.bookStructure.innerSpreads.last?.left.layers.isEmpty == true && 
+           editorState.bookStructure.innerSpreads.count > 1 {
+            let placeholderIndex = allContents.count - 2 // Left page of last spread
+            if placeholderIndex >= 0 {
+                print("🧹 检测到预览占位符，从内容流中移除")
+                allContents.remove(at: placeholderIndex)
+            }
         }
         
         // Step 2: Identify the slot we are deleting and remove it
-        // Our indexing: spread0.left(0), spread0.right(1), ...
         let indexToDelete = currentIndex * 2 + (isLeft ? 0 : 1)
-        guard indexToDelete < allContents.count else { return }
         
-        print("✂️ 正在从 \(allContents.count) 个内容槽位中删除索引 \(indexToDelete)")
+        // Safety: If we just removed a placeholder at (count-2), our index might need adjustment 
+        // if we were trying to delete the very last page which just shifted. 
+        // But the user clicked a specific UI element.
+        guard indexToDelete < allContents.count else { 
+            print("⚠️ 索引超出内容流范围，操作取消")
+            return 
+        }
+        
+        print("✂️ 正在从 \(allContents.count) 个真实内容槽位中删除索引 \(indexToDelete)")
         allContents.remove(at: indexToDelete)
         
         // Step 3: Rebuild spreads with the "Left-Blank for Odd" rule
