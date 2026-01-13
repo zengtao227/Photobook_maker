@@ -389,12 +389,26 @@ struct BookPage: View {
     
     @ViewBuilder
     private func textureView(for type: String) -> some View {
-        switch type {
-        case "paper": DotsPattern().opacity(0.1)
-        case "fabric": DiagonalPattern().opacity(0.15)
-        case "wood": StripesPattern().opacity(0.2)
-        case "marble": GridPattern().stroke(Color.gray.opacity(0.1), lineWidth: 0.5)
-        default: EmptyView()
+        Group {
+            if let image = NSImage(contentsOf: Bundle.main.bundleURL.appendingPathComponent("Resources/Backgrounds/\(type).png")) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else if let bundleImage = NSImage(named: type) {
+                // Fallback to named assets
+                Image(nsImage: bundleImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                // Procedural fallbacks for basic types
+                switch type {
+                case "paper": DotsPattern().opacity(0.1)
+                case "fabric": DiagonalPattern().opacity(0.15)
+                case "wood": StripesPattern().opacity(0.2)
+                case "marble": GridPattern().stroke(Color.gray.opacity(0.1), lineWidth: 0.5)
+                default: EmptyView()
+                }
+            }
         }
     }
     

@@ -100,32 +100,26 @@ struct BackgroundPickerView: View {
     // 纯色背景
     private var solidColors: [BackgroundItem] {
         [
-            BackgroundItem(id: "white", name: "White", type: .solid("#FFFFFF")),
-            BackgroundItem(id: "cream", name: "Cream", type: .solid("#FFF8E7")),
-            BackgroundItem(id: "beige", name: "Beige", type: .solid("#F5F5DC")),
-            BackgroundItem(id: "lightgray", name: "Light Gray", type: .solid("#F0F0F0")),
-            BackgroundItem(id: "softblue", name: "Soft Blue", type: .solid("#E3F2FD")),
-            BackgroundItem(id: "softpink", name: "Soft Pink", type: .solid("#FCE4EC")),
-            BackgroundItem(id: "softgreen", name: "Soft Green", type: .solid("#E8F5E9")),
-            BackgroundItem(id: "softyellow", name: "Soft Yellow", type: .solid("#FFFDE7")),
-            BackgroundItem(id: "lavender", name: "Lavender", type: .solid("#F3E5F5")),
-            BackgroundItem(id: "peach", name: "Peach", type: .solid("#FFE0B2")),
-            BackgroundItem(id: "mint", name: "Mint", type: .solid("#E0F2F1")),
-            BackgroundItem(id: "rose", name: "Rose", type: .solid("#FFEBEE")),
+            BackgroundItem(id: "white", name: localization.currentLanguage == .chinese ? "皓月白" : "Moon White", type: .solid("#FFFFFF")),
+            BackgroundItem(id: "cream", name: localization.currentLanguage == .chinese ? "象牙白" : "Ivory Cream", type: .solid("#FFFDF5")),
+            BackgroundItem(id: "beige", name: localization.currentLanguage == .chinese ? "素雅米" : "Elegant Beige", type: .solid("#F5F5DC")),
+            BackgroundItem(id: "lightgray", name: localization.currentLanguage == .chinese ? "高级灰" : "Premium Gray", type: .solid("#E8E8E8")),
+            BackgroundItem(id: "spacegray", name: localization.currentLanguage == .chinese ? "深空灰" : "Space Gray", type: .solid("#333333")),
+            BackgroundItem(id: "charcoal", name: localization.currentLanguage == .chinese ? "磨砂黑" : "Charcoal Black", type: .solid("#1A1A1A")),
+            BackgroundItem(id: "midnight", name: localization.currentLanguage == .chinese ? "午夜蓝" : "Midnight Blue", type: .solid("#0A192F")),
+            BackgroundItem(id: "forest_solid", name: localization.currentLanguage == .chinese ? "森林绿" : "Forest Green", type: .solid("#1B3022")),
         ]
     }
     
     // 渐变背景
     private var gradientBackgrounds: [BackgroundItem] {
         [
-            BackgroundItem(id: "sunset", name: "Sunset", type: .gradient(["#FF6B6B", "#FFE66D"])),
-            BackgroundItem(id: "ocean", name: "Ocean", type: .gradient(["#667eea", "#764ba2"])),
-            BackgroundItem(id: "forest", name: "Forest", type: .gradient(["#134E5E", "#71B280"])),
-            BackgroundItem(id: "candy", name: "Candy", type: .gradient(["#FFA8E2", "#FF6BD6"])),
-            BackgroundItem(id: "sky", name: "Sky", type: .gradient(["#56CCF2", "#2F80ED"])),
-            BackgroundItem(id: "peach_gradient", name: "Peach", type: .gradient(["#FFECD2", "#FCB69F"])),
-            BackgroundItem(id: "purple_dream", name: "Purple Dream", type: .gradient(["#C471F5", "#FA71CD"])),
-            BackgroundItem(id: "mint_gradient", name: "Mint", type: .gradient(["#A8EDEA", "#FED6E3"])),
+            BackgroundItem(id: "mesh_dream", name: localization.currentLanguage == .chinese ? "幻彩弥散" : "Mesh Dream", type: .texture(.premium_mesh)),
+            BackgroundItem(id: "aurora", name: localization.currentLanguage == .chinese ? "极光之森" : "Aurora Borealis", type: .gradient(["#243B55", "#141E30"])),
+            BackgroundItem(id: "serenity", name: localization.currentLanguage == .chinese ? "宁静蓝" : "Serenity", type: .gradient(["#E0EAFC", "#CFDEF3"])),
+            BackgroundItem(id: "rose_gold", name: localization.currentLanguage == .chinese ? "柔光金" : "Rose Gold", type: .gradient(["#F3904F", "#3B4371"])),
+            BackgroundItem(id: "minimal_dark", name: localization.currentLanguage == .chinese ? "极简暗色" : "Minimal Dark", type: .gradient(["#232526", "#414345"])),
+            BackgroundItem(id: "champagne", name: localization.currentLanguage == .chinese ? "香槟金" : "Champagne", type: .gradient(["#FFE29F", "#FFA99F", "#FF719A"])),
         ]
     }
     
@@ -144,10 +138,10 @@ struct BackgroundPickerView: View {
     // 纹理背景
     private var textureBackgrounds: [BackgroundItem] {
         [
-            BackgroundItem(id: "paper", name: "Paper", type: .texture(.paper)),
-            BackgroundItem(id: "fabric", name: "Fabric", type: .texture(.fabric)),
-            BackgroundItem(id: "wood", name: "Wood", type: .texture(.wood)),
-            BackgroundItem(id: "marble", name: "Marble", type: .texture(.marble)),
+            BackgroundItem(id: "premium_mesh_item", name: localization.currentLanguage == .chinese ? "现代弥散" : "Modern Mesh", type: .texture(.premium_mesh)),
+            BackgroundItem(id: "japanese_paper", name: localization.currentLanguage == .chinese ? "和纸质感" : "Japanese Paper", type: .texture(.washi_paper)),
+            BackgroundItem(id: "white_marble", name: localization.currentLanguage == .chinese ? "雪花大理石" : "White Marble", type: .texture(.marble)),
+            BackgroundItem(id: "luxury_linen", name: localization.currentLanguage == .chinese ? "高级亚麻" : "Fine Linen", type: .texture(.fabric)),
         ]
     }
     
@@ -215,6 +209,8 @@ struct BackgroundItem: Identifiable {
         case fabric
         case wood
         case marble
+        case premium_mesh
+        case washi_paper
     }
 }
 
@@ -432,29 +428,19 @@ struct BackgroundPickerPopover: View {
         switch selectedCategory {
         case .solid:
             return [
-                BackgroundItem(id: "white", name: "White", type: .solid("#FFFFFF")),
-                BackgroundItem(id: "cream", name: "Cream", type: .solid("#FFF8E7")),
-                BackgroundItem(id: "beige", name: "Beige", type: .solid("#F5F5DC")),
-                BackgroundItem(id: "lightgray", name: "Light Gray", type: .solid("#F0F0F0")),
-                BackgroundItem(id: "softblue", name: "Soft Blue", type: .solid("#E3F2FD")),
-                BackgroundItem(id: "softpink", name: "Soft Pink", type: .solid("#FCE4EC")),
-                BackgroundItem(id: "softgreen", name: "Soft Green", type: .solid("#E8F5E9")),
-                BackgroundItem(id: "softyellow", name: "Soft Yellow", type: .solid("#FFFDE7")),
-                BackgroundItem(id: "lavender", name: "Lavender", type: .solid("#F3E5F5")),
-                BackgroundItem(id: "peach", name: "Peach", type: .solid("#FFE0B2")),
-                BackgroundItem(id: "mint", name: "Mint", type: .solid("#E0F2F1")),
-                BackgroundItem(id: "rose", name: "Rose", type: .solid("#FFEBEE")),
+                BackgroundItem(id: "white", name: localization.currentLanguage == .chinese ? "皓月白" : "Moon White", type: .solid("#FFFFFF")),
+                BackgroundItem(id: "cream", name: localization.currentLanguage == .chinese ? "象牙白" : "Ivory Cream", type: .solid("#FFFDF5")),
+                BackgroundItem(id: "beige", name: localization.currentLanguage == .chinese ? "素雅米" : "Elegant Beige", type: .solid("#F5F5DC")),
+                BackgroundItem(id: "lightgray", name: localization.currentLanguage == .chinese ? "高级灰" : "Premium Gray", type: .solid("#E8E8E8")),
+                BackgroundItem(id: "spacegray", name: localization.currentLanguage == .chinese ? "深空灰" : "Space Gray", type: .solid("#333333")),
+                BackgroundItem(id: "charcoal", name: localization.currentLanguage == .chinese ? "磨砂黑" : "Charcoal Black", type: .solid("#1A1A1A")),
             ]
         case .gradient:
             return [
-                BackgroundItem(id: "sunset", name: "Sunset", type: .gradient(["#FF6B6B", "#FFE66D"])),
-                BackgroundItem(id: "ocean", name: "Ocean", type: .gradient(["#667eea", "#764ba2"])),
-                BackgroundItem(id: "forest", name: "Forest", type: .gradient(["#134E5E", "#71B280"])),
-                BackgroundItem(id: "candy", name: "Candy", type: .gradient(["#FFA8E2", "#FF6BD6"])),
-                BackgroundItem(id: "sky", name: "Sky", type: .gradient(["#56CCF2", "#2F80ED"])),
-                BackgroundItem(id: "peach_gradient", name: "Peach", type: .gradient(["#FFECD2", "#FCB69F"])),
-                BackgroundItem(id: "purple_dream", name: "Purple Dream", type: .gradient(["#C471F5", "#FA71CD"])),
-                BackgroundItem(id: "mint_gradient", name: "Mint", type: .gradient(["#A8EDEA", "#FED6E3"])),
+                BackgroundItem(id: "mesh_dream", name: localization.currentLanguage == .chinese ? "幻彩弥散" : "Mesh Dream", type: .texture(.premium_mesh)),
+                BackgroundItem(id: "aurora", name: localization.currentLanguage == .chinese ? "极光之森" : "Aurora Borealis", type: .gradient(["#243B55", "#141E30"])),
+                BackgroundItem(id: "serenity", name: localization.currentLanguage == .chinese ? "宁静蓝" : "Serenity", type: .gradient(["#E0EAFC", "#CFDEF3"])),
+                BackgroundItem(id: "champagne", name: localization.currentLanguage == .chinese ? "香槟金" : "Champagne", type: .gradient(["#FFE29F", "#FFA99F", "#FF719A"])),
             ]
         case .pattern:
             return [
@@ -467,10 +453,9 @@ struct BackgroundPickerPopover: View {
             ]
         case .texture:
             return [
-                BackgroundItem(id: "paper", name: "Paper", type: .texture(.paper)),
-                BackgroundItem(id: "fabric", name: "Fabric", type: .texture(.fabric)),
-                BackgroundItem(id: "wood", name: "Wood", type: .texture(.wood)),
-                BackgroundItem(id: "marble", name: "Marble", type: .texture(.marble)),
+                BackgroundItem(id: "premium_mesh_item", name: localization.currentLanguage == .chinese ? "现代弥散" : "Modern Mesh", type: .texture(.premium_mesh)),
+                BackgroundItem(id: "japanese_paper", name: localization.currentLanguage == .chinese ? "和纸质感" : "Japanese Paper", type: .texture(.washi_paper)),
+                BackgroundItem(id: "white_marble", name: localization.currentLanguage == .chinese ? "雪花大理石" : "White Marble", type: .texture(.marble)),
             ]
         }
     }
