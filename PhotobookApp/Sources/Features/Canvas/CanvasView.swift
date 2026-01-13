@@ -364,12 +364,18 @@ struct BookPage: View {
         case .pattern:
             ZStack {
                 Rectangle().fill(Color(hex: pageModel.backgroundColorHex))
-                if let patternType = pageModel.patternType { patternView(for: patternType) }
+                if let patternType = pageModel.patternType { 
+                    patternView(for: patternType)
+                        .opacity(pageModel.backgroundOpacity)
+                }
             }
         case .texture:
             ZStack {
                 Rectangle().fill(Color(hex: pageModel.backgroundColorHex))
-                if let textureType = pageModel.textureType { textureView(for: textureType) }
+                if let textureType = pageModel.textureType { 
+                    textureView(for: textureType) 
+                        .opacity(pageModel.backgroundOpacity)
+                }
             }
         }
     }
@@ -383,32 +389,21 @@ struct BookPage: View {
         case "diagonal": DiagonalPattern()
         case "hearts": HeartsPattern()
         case "stars": StarsPattern()
+        case "waves": WavesPattern()
+        case "checks": ChecksPattern()
+        case "zigzag": ZigzagPattern()
         default: EmptyView()
         }
     }
     
     @ViewBuilder
     private func textureView(for type: String) -> some View {
-        Group {
-            if let image = NSImage(contentsOf: Bundle.main.bundleURL.appendingPathComponent("Resources/Backgrounds/\(type).png")) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else if let bundleImage = NSImage(named: type) {
-                // Fallback to named assets
-                Image(nsImage: bundleImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                // Procedural fallbacks for basic types
-                switch type {
-                case "paper": DotsPattern().opacity(0.1)
-                case "fabric": DiagonalPattern().opacity(0.15)
-                case "wood": StripesPattern().opacity(0.2)
-                case "marble": GridPattern().stroke(Color.gray.opacity(0.1), lineWidth: 0.5)
-                default: EmptyView()
-                }
-            }
+        switch type {
+        case "paper": DotsPattern().opacity(0.4)
+        case "fabric": DiagonalPattern().opacity(0.5)
+        case "wood": StripesPattern().opacity(0.6)
+        case "marble": GridPattern().stroke(Color.gray.opacity(0.3), lineWidth: 1.0)
+        default: EmptyView()
         }
     }
     

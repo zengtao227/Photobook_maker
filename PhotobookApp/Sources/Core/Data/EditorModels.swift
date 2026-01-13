@@ -220,6 +220,7 @@ public struct PageModel: Identifiable, Codable {
     public var gradientColors: [String]? = nil  // 渐变颜色
     public var patternType: String? = nil  // 图案类型
     public var textureType: String? = nil  // 纹理类型
+    public var backgroundOpacity: Double = 1.0 // 背景透明度
     
     public enum BackgroundType: String, Codable {
         case solid

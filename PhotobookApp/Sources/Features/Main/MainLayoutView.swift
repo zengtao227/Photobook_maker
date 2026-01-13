@@ -162,7 +162,6 @@ struct MainLayoutView: View {
                 
                 // Bottom Page Navigator (Filmstrip)
                 PageNavigatorView(pages: $pages, activePageId: $activePageId)
-                    .frame(height: 120)
                     .background(themeManager.theme.panelColor)
                     .onAppear {
                         if let first = pages.first {
@@ -187,26 +186,23 @@ struct MainLayoutView: View {
         .environment(localization)
         // Global Theme Transition
         .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
-        // Global Theme Transition
-        .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
+        // Global Delete shortcut
+        .onKeyPress(.delete) {
+            if editorState.selectedLayerId != nil {
+                editorState.deleteSelectedLayer()
+                return .handled
+            }
+            return .ignored
+        }
         .onChange(of: undoManager, initial: true) { _, newValue in
             editorState.undoManager = newValue
         }
-        // GLOBAL SHORTCUT LAYER
+        // Global Delete shortcut (Cmd + Backspace)
         .background(
-            ZStack {
-                // Option 1: Backspace (Delete key in SwiftUI)
-                Button("") {
-                    editorState.smartDelete()
-                }
-                .keyboardShortcut(.delete, modifiers: [])
-                
-                // Option 2: Cmd + Backspace (Standard macOS delete)
-                Button("") {
-                    editorState.smartDelete()
-                }
-                .keyboardShortcut(.delete, modifiers: .command)
+            Button("") {
+                editorState.smartDelete()
             }
+            .keyboardShortcut(.delete, modifiers: .command)
             .opacity(0)
         )
 

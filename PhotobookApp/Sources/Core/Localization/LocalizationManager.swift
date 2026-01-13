@@ -185,6 +185,8 @@ public enum LocalizedKey {
     case toPageBefore
     case enterPageNumber
     case pageNumberHint(Int, Int)
+    case totalPagesCount(Int)
+    case totalSpreadsCount(Int)
     case move
     case undo
     case redo
@@ -201,25 +203,30 @@ public enum LocalizedKey {
     case homePrint
     case professionalPrint
     case resolution
+    case customDPI
     case bleedSettings
+    case bleedExplanation
     case includeBleed
     case bleedMargin
-    case bleedExplanation
     case exportMode
     case singlePages
     case spreads
     case productionWrap
     case printMarks
     case cropMarks
+    case cropMarksHelp
     case registrationMarks
+    case registrationMarksHelp
     case colorBars
+    case colorBarsHelp
     case pageInfo
+    case pageInfoHelp
     case bookInfo
     case exporting
     case exportComplete
-    case exportFailed
+    case exportFailed(String)
+    case exportSuccessDetailed(binding: String, pages: Int, spreads: Int, sheets: Int, paperSize: String, fileSize: String)
     case estimatedSize
-    case customDPI
     case impositionPreview
     case sheet(Int)
     case frontSide
@@ -227,11 +234,20 @@ public enum LocalizedKey {
     case blank
     case sheets(Int)
     
-    // Export Help Text
-    case cropMarksHelp
-    case registrationMarksHelp
-    case colorBarsHelp
-    case pageInfoHelp
+    // Background Categories
+    case solid
+    case gradient
+    case pattern
+    case texture
+    case background
+    
+    // Book Info Labels
+    case innerLabel
+    case totalLabel
+    case spineLabel
+    case bindingLabel
+    case pagesUnit
+    case saddleStitchWarning(total: Int, needing: Int)
     
     // Layer Settings
     case layerSettings
@@ -391,47 +407,69 @@ public enum LocalizedKey {
         case .toPageBefore: return "移动到第几页之前"
         case .enterPageNumber: return "输入页码"
         case .pageNumberHint(let total, let spreads): return "提示：页码从 1 开始，当前共有 \(total) 页（\(spreads) 个跨页）"
+        case .totalPagesCount(let count): return "共 \(count) 页"
+        case .totalSpreadsCount(let count): return "共 \(count) 个跨页"
         case .move: return "移动"
         case .undo: return "撤销"
         case .redo: return "重做"
         
         case .exportPDF: return "导出 PDF"
-        case .configureExport: return "配置导出选项"
+        case .configureExport: return "配置导出选项以供专业印刷"
         case .quickPresets: return "快速预设"
         case .screenPreview: return "屏幕预览"
         case .homePrint: return "家用打印"
         case .professionalPrint: return "专业印刷"
-        case .resolution: return "分辨率"
-        case .bleedSettings: return "出血设置"
-        case .includeBleed: return "添加出血边距"
-        case .bleedMargin: return "出血边距"
-        case .bleedExplanation: return "出血是指印刷时在裁切线外额外添加的图像区域，防止裁切误差导致白边。专业印刷通常需要3mm出血。"
+        case .resolution: return "分辨率 (DPI)"
+        case .customDPI: return "自定义分辨率"
+        case .bleedSettings: return "出血位设置"
+        case .bleedExplanation: return "出血位是页面边缘被裁切的部分。对于满版背景，请务必开启此选项。"
+        case .includeBleed: return "包含出血位"
+        case .bleedMargin: return "出血位边距"
         case .exportMode: return "导出模式"
         case .singlePages: return "单页导出"
         case .spreads: return "跨页导出"
         case .productionWrap: return "印刷全包"
         case .printMarks: return "印刷标记"
-        case .cropMarks: return "裁切线"
-        case .registrationMarks: return "套准标记"
-        case .colorBars: return "色条"
-        case .pageInfo: return "页面信息"
-        case .bookInfo: return "相册信息"
-        case .exporting: return "导出中..."
+        case .cropMarks: return "裁切标记 (Crop Marks)"
+        case .cropMarksHelp: return "在页面角处添加细线，指导裁切。"
+        case .registrationMarks: return "套准标记 (Registration Marks)"
+        case .registrationMarksHelp: return "添加用于对齐分色的标记。"
+        case .colorBars: return "颜色条 (Color Bars)"
+        case .colorBarsHelp: return "添加 CMYK/RGB 颜色条以校准颜色。"
+        case .pageInfo: return "页面信息 (Page Info)"
+        case .pageInfoHelp: return "在裁切区域外打印页码和文件名。"
+        case .bookInfo: return "画册信息摘要"
+        case .exporting: return "正在导出..."
         case .exportComplete: return "导出完成"
-        case .exportFailed: return "导出失败"
-        case .estimatedSize: return "预估文件大小"
-        case .customDPI: return "自定义:"
-        case .impositionPreview: return "拼版预览"
+        case .exportFailed(let error): return "导出失败: \(error)"
+        case .exportSuccessDetailed(let binding, let pages, _, let sheets, let size, let file):
+            if sheets > 0 {
+                return "已成功导出 \(binding) PDF\nPDF页数: \(pages) 页（跨页格式）\n打印纸张: \(sheets) 张 \(size) 纸（双面打印）\n文件大小: \(file)"
+            } else {
+                return "已成功导出 \(pages) 页\n文件大小: \(file)"
+            }
+        case .estimatedSize: return "预计文件大小"
+        case .impositionPreview: return "拼版预览 (Imposition Layout)"
         case .sheet(let num): return "纸 \(num)"
         case .frontSide: return "正面"
         case .backSide: return "背面"
         case .blank: return "空"
         case .sheets(let count): return "\(count) 张纸"
         
-        case .cropMarksHelp: return "打印时用于指示裁剪位置的线条。启用此选项可在PDF中显示裁剪标记。"
-        case .registrationMarksHelp: return "用于对齐多色印刷的参考标记。启用此选项可在PDF中显示套准标记。"
-        case .colorBarsHelp: return "用于检查颜色准确性的参考条。启用此选项可在PDF中显示色调条。"
-        case .pageInfoHelp: return "包含页码、日期等元数据的信息。启用此选项可在PDF中显示页面信息。"
+        case .solid: return "纯色"
+        case .gradient: return "渐变"
+        case .pattern: return "图案"
+        case .texture: return "纹理"
+        case .background: return "背景"
+        
+        case .innerLabel: return "内页"
+        case .totalLabel: return "总页数"
+        case .spineLabel: return "书脊"
+        case .bindingLabel: return "装订"
+        case .pagesUnit: return "页"
+        case .saddleStitchWarning(let total, let needing):
+            return "骑马钉装订需要总页数为 4 的倍数，当前 \(total) 页，将自动添加 \(needing) 页空白页"
+        
         case .layerSettings: return "图层设置"
         case .border: return "边框"
         case .style: return "样式"
@@ -590,47 +628,69 @@ public enum LocalizedKey {
         case .toPageBefore: return "To before page"
         case .enterPageNumber: return "Enter page number"
         case .pageNumberHint(let total, let spreads): return "Hint: Page numbers start from 1, currently \(total) pages (\(spreads) spreads)"
+        case .totalPagesCount(let count): return "Total \(count) Pages"
+        case .totalSpreadsCount(let count): return "Total \(count) Spreads"
         case .move: return "Move"
         case .undo: return "Undo"
         case .redo: return "Redo"
         
         case .exportPDF: return "Export PDF"
-        case .configureExport: return "Configure export options"
+        case .configureExport: return "Configure export options for professional printing"
         case .quickPresets: return "Quick Presets"
         case .screenPreview: return "Screen Preview"
-        case .homePrint: return "Home Print"
-        case .professionalPrint: return "Professional"
-        case .resolution: return "Resolution"
+        case .homePrint: return "Home Printing"
+        case .professionalPrint: return "Professional Printing"
+        case .resolution: return "Resolution (DPI)"
+        case .customDPI: return "Custom DPI"
         case .bleedSettings: return "Bleed Settings"
-        case .includeBleed: return "Add Bleed Margin"
+        case .bleedExplanation: return "Bleed is the part of the page edges that will be trimmed. For full-bleed designs, ensure this is enabled."
+        case .includeBleed: return "Include Bleed"
         case .bleedMargin: return "Bleed Margin"
-        case .bleedExplanation: return "Bleed is the extra image area beyond the trim line to prevent white edges from cutting errors. Professional printing typically requires 3mm bleed."
         case .exportMode: return "Export Mode"
         case .singlePages: return "Single Pages"
         case .spreads: return "Spreads"
         case .productionWrap: return "Production"
-        case .printMarks: return "Print Marks"
+        case .printMarks: return "Printer's Marks"
         case .cropMarks: return "Crop Marks"
-        case .registrationMarks: return "Registration"
+        case .cropMarksHelp: return "Adds fine lines at the corners to guide trimming."
+        case .registrationMarks: return "Registration Marks"
+        case .registrationMarksHelp: return "Adds targets for aligning color separations."
         case .colorBars: return "Color Bars"
+        case .colorBarsHelp: return "Adds color bars to calibrate process colors."
         case .pageInfo: return "Page Info"
-        case .bookInfo: return "Book Info"
+        case .pageInfoHelp: return "Prints filename and page number outside the bleed area."
+        case .bookInfo: return "Book Summary"
         case .exporting: return "Exporting..."
         case .exportComplete: return "Export Complete"
-        case .exportFailed: return "Export Failed"
-        case .estimatedSize: return "Estimated Size"
-        case .customDPI: return "Custom:"
+        case .exportFailed(let error): return "Export Failed: \(error)"
+        case .exportSuccessDetailed(let binding, let pages, _, let sheets, let size, let file):
+            if sheets > 0 {
+                return "Successfully exported \(binding) PDF\nPDF Pages: \(pages) (Spread format)\nPrint Sheets: \(sheets) \(size) Paper (Double-sided)\nFile Size: \(file)"
+            } else {
+                return "Successfully exported \(pages) pages\nFile Size: \(file)"
+            }
+        case .estimatedSize: return "Estimated File Size"
         case .impositionPreview: return "Imposition Preview"
         case .sheet(let num): return "Sheet \(num)"
         case .frontSide: return "Front"
         case .backSide: return "Back"
         case .blank: return "Blank"
-        case .sheets(let count): return "\(count) sheets"
+        case .sheets(let count): return "\(count) Sheets"
         
-        case .cropMarksHelp: return "Lines that indicate where to crop when printing. Enable this to show crop marks in the PDF."
-        case .registrationMarksHelp: return "Reference marks for aligning multi-color printing. Enable this to show registration marks in the PDF."
-        case .colorBarsHelp: return "Reference bars for checking color accuracy. Enable this to show color bars in the PDF."
-        case .pageInfoHelp: return "Metadata information including page numbers and dates. Enable this to show page information in the PDF."
+        case .solid: return "Solid Colors"
+        case .gradient: return "Gradients"
+        case .pattern: return "Patterns"
+        case .texture: return "Textures"
+        case .background: return "Background"
+        
+        case .innerLabel: return "Inner"
+        case .totalLabel: return "Total"
+        case .spineLabel: return "Spine"
+        case .bindingLabel: return "Binding"
+        case .pagesUnit: return "pages"
+        case .saddleStitchWarning(let total, let needing):
+            return "Saddle stitch binding requires total pages to be a multiple of 4. Currently \(total) pages, \(needing) blank pages will be added automatically."
+        
         case .layerSettings: return "Layer Settings"
         case .border: return "Border"
         case .style: return "Style"
@@ -762,7 +822,7 @@ public enum LocalizedKey {
         case .softcoverDesc: return "Klebebindung: Seiten in Reihenfolge geklebt, geeignet für die meisten Fotobücher"
         case .hardcoverDesc: return "Hardcover: Fester Einband, Premium-Gefühl, unterstützt Vollumschlag-Design"
         case .layflatDesc: return "Layflat: Doppelseiten öffnen sich vollständig flach 180°, ideal für Panoramafotos"
-        case .saddleStitchDesc: return "Rückendrahtheftung: In der Mitte geheftet, Seitenzahl muss ein Vielfaches von 4 sein"
+        case .saddleStitchDesc: return "Rückendrahtheftung: In der Mitte geheftet, Seitenzahl muss ein Vielfaches von 4"
         case .cover: return "Umschlag"
         case .frontCover: return "Vorderseite"
         case .backCover: return "Rückseite"
@@ -778,43 +838,82 @@ public enum LocalizedKey {
         case .needMorePages(let count): return "\(count) Seiten benötigt"
         case .innerSpreadLabel(let index): return "Doppelseite \(index)"
         case .fullCoverWrap: return "Vollumschlag"
+        
+        // Page Management
+        case .pageManagement: return "Seitenverwaltung"
+        case .goToSpread: return "Gehe zu Seite"
+        case .movePage: return "Seite verschieben"
+        case .movePageTitle: return "Seite verschieben"
+        case .movePageDescription: return "Seite m vor Seite n verschieben"
+        case .fromPage: return "Von Seite"
+        case .toPageBefore: return "Bis vor Seite"
+        case .enterPageNumber: return "Seitenzahl eingeben"
+        case .pageNumberHint(let total, let spreads): return "Hinweis: Seitenzahlen beginnen bei 1, aktuell \(total) Seiten (\(spreads) Doppelseiten)"
+        case .totalPagesCount(let count): return "Gesamt \(count) Seiten"
+        case .totalSpreadsCount(let count): return "Gesamt \(count) Doppelseiten"
+        case .move: return "Verschieben"
+        case .undo: return "Rückgängig"
+        case .redo: return "Wiederholen"
+        
         case .exportPDF: return "PDF exportieren"
         case .configureExport: return "Exportoptionen konfigurieren"
         case .quickPresets: return "Schnellvorlagen"
         case .screenPreview: return "Bildschirmvorschau"
         case .homePrint: return "Heimdruck"
-        case .professionalPrint: return "Professionell"
-        case .resolution: return "Auflösung"
+        case .professionalPrint: return "Professioneller Druck"
+        case .resolution: return "Auflösung (DPI)"
+        case .customDPI: return "Benutzerdefinierte DPI"
         case .bleedSettings: return "Beschnitt-Einstellungen"
-        case .includeBleed: return "Beschnittzugabe hinzufügen"
-        case .bleedMargin: return "Beschnittzugabe"
-        case .bleedExplanation: return "Beschnitt ist der zusätzliche Bildbereich über die Schnittlinie hinaus, um weiße Ränder durch Schneidefehler zu vermeiden. Professioneller Druck erfordert typischerweise 3mm Beschnitt."
+        case .bleedExplanation: return "Beschnitt ist der Bereich der Seitenränder, der abgeschnitten wird."
+        case .includeBleed: return "Beschnitt einschließen"
+        case .bleedMargin: return "Beschnittrand"
         case .exportMode: return "Exportmodus"
         case .singlePages: return "Einzelseiten"
         case .spreads: return "Doppelseiten"
         case .productionWrap: return "Produktion"
         case .printMarks: return "Druckmarken"
         case .cropMarks: return "Schnittmarken"
+        case .cropMarksHelp: return "Fügt feine Linien an den Ecken hinzu, um das Beschneiden zu leiten."
         case .registrationMarks: return "Passermarken"
+        case .registrationMarksHelp: return "Fügt Ziele für die Ausrichtung der Farbauszüge hinzu."
         case .colorBars: return "Farbbalken"
+        case .colorBarsHelp: return "Fügt Farbbalken zur Kalibrierung der Prozessfarben hinzu."
         case .pageInfo: return "Seiteninformation"
-        case .bookInfo: return "Buchinformation"
-        case .exporting: return "Exportiere..."
+        case .pageInfoHelp: return "Druckt Dateinamen und Seitenzahl außerhalb des Beschnittbereichs."
+        case .bookInfo: return "Buchzusammenfassung"
+        case .exporting: return "Exportieren..."
         case .exportComplete: return "Export abgeschlossen"
-        case .exportFailed: return "Export fehlgeschlagen"
-        case .estimatedSize: return "Geschätzte Größe"
-        case .customDPI: return "Benutzerdefiniert:"
+        case .exportFailed(let error): return "Export fehlgeschlagen: \(error)"
+        case .blank: return "Leer"
+        case .sheets(let count): return "\(count) Bögen"
+        
+        case .solid: return "Farben"
+        case .gradient: return "Verläufe"
+        case .pattern: return "Muster"
+        case .texture: return "Texturen"
+        case .background: return "Hintergrund"
+        
+        case .innerLabel: return "Innenseiten"
+        case .totalLabel: return "Gesamt"
+        case .spineLabel: return "Rücken"
+        case .bindingLabel: return "Bindung"
+        case .pagesUnit: return "Seiten"
+        case .saddleStitchWarning(let total, let needing):
+            return "Die Rückendrahtheftung erfordert eine Gesamtseitenzahl, die durch 4 teilbar ist. Aktuell: \(total) Seiten. Es werden automatisch \(needing) Leerseiten hinzugefügt."
+        
+        case .exportSuccessDetailed(let binding, let pages, _, let sheets, let size, let file):
+            if sheets > 0 {
+                return "Erfolgreich exportiert \(binding) PDF\nPDF-Seiten: \(pages) (Doppelseiten format)\nDruckbögen: \(sheets) \(size) Papier (Beidseitig)\nDateigröße: \(file)"
+            } else {
+                return "Erfolgreich exportiert \(pages) Seiten\nDateigröße: \(file)"
+            }
+        
+        case .estimatedSize: return "Geschätzte Dateigröße"
         case .impositionPreview: return "Ausschießvorschau"
         case .sheet(let num): return "Bogen \(num)"
         case .frontSide: return "Vorderseite"
         case .backSide: return "Rückseite"
-        case .blank: return "Leer"
-        case .sheets(let count): return "\(count) Bogen"
         
-        case .cropMarksHelp: return "Linien, die beim Drucken anzeigen, wo geschnitten werden soll. Aktivieren Sie dies, um Schnittmarken im PDF anzuzeigen."
-        case .registrationMarksHelp: return "Referenzmarken zum Ausrichten des Mehrfarbendrucks. Aktivieren Sie dies, um Passermarken im PDF anzuzeigen."
-        case .colorBarsHelp: return "Referenzbalken zur Überprüfung der Farbgenauigkeit. Aktivieren Sie dies, um Farbbalken im PDF anzuzeigen."
-        case .pageInfoHelp: return "Metadaten-Informationen einschließlich Seitenzahlen und Daten. Aktivieren Sie dies, um Seiteninformationen im PDF anzuzeigen."
         case .layerSettings: return "Ebeneneinstellungen"
         case .border: return "Rahmen"
         case .style: return "Stil"
@@ -853,18 +952,6 @@ public enum LocalizedKey {
         case .importCustomSticker: return "Benutzerdefinierten Sticker importieren..."
         case .done: return "Fertig"
         case .swapLeftRight: return "Links/Rechts tauschen"
-        case .pageManagement: return "Seitenverwaltung"
-        case .goToSpread: return "Gehe zu Spread"
-        case .movePage: return "Seite verschieben"
-        case .movePageTitle: return "Seite verschieben"
-        case .movePageDescription: return "Seite m vor Seite n verschieben"
-        case .fromPage: return "Von Seite"
-        case .toPageBefore: return "Bis vor Seite"
-        case .enterPageNumber: return "Seitenzahl eingeben"
-        case .pageNumberHint(let total, let spreads): return "Hinweis: Seitenzahlen beginnen bei 1, derzeit \(total) Seiten (\(spreads) Doppelseiten)"
-        case .move: return "Verschieben"
-        case .undo: return "Rückgängig"
-        case .redo: return "Wiederholen"
         
         // Photo Navigation
         case .navigateToFrontCover: return "Zum Vorderdeckel"
@@ -974,6 +1061,8 @@ public enum LocalizedKey {
         case .needMorePages(let count): return "\(count) pages nécessaires"
         case .innerSpreadLabel(let index): return "Double page \(index)"
         case .fullCoverWrap: return "Couverture complète"
+        
+        // Page Management
         case .pageManagement: return "Gestion des pages"
         case .goToSpread: return "Aller à la double page"
         case .movePage: return "Déplacer la page"
@@ -982,47 +1071,70 @@ public enum LocalizedKey {
         case .fromPage: return "De la page"
         case .toPageBefore: return "Avant la page"
         case .enterPageNumber: return "Entrer le numéro de page"
-        case .pageNumberHint(let total, let spreads): return "Note : Les numéros de page commencent à 1, actuellement \(total) pages (\(spreads) doubles pages)"
+        case .pageNumberHint(let total, let spreads): return "Indice: Les numéros de page commencent à 1, actuellement \(total) pages (\(spreads) doubles pages)"
+        case .totalPagesCount(let count): return "Total \(count) pages"
+        case .totalSpreadsCount(let count): return "Total \(count) doubles pages"
         case .move: return "Déplacer"
         case .undo: return "Annuler"
         case .redo: return "Rétablir"
-        case .exportPDF: return "Exporter PDF"
-        case .configureExport: return "Configurer les options d'export"
+        
+        case .exportPDF: return "Exporter en PDF"
+        case .configureExport: return "Configurer les options d'exportation"
         case .quickPresets: return "Préréglages rapides"
         case .screenPreview: return "Aperçu écran"
-        case .homePrint: return "Impression maison"
-        case .professionalPrint: return "Professionnel"
-        case .resolution: return "Résolution"
+        case .homePrint: return "Impression domestique"
+        case .professionalPrint: return "Impression professionnelle"
+        case .resolution: return "Résolution (DPI)"
+        case .customDPI: return "DPI personnalisé"
         case .bleedSettings: return "Paramètres de fond perdu"
-        case .includeBleed: return "Ajouter marge de fond perdu"
-        case .bleedMargin: return "Marge de fond perdu"
         case .bleedExplanation: return "Le fond perdu est la zone d'image supplémentaire au-delà de la ligne de coupe pour éviter les bords blancs dus aux erreurs de coupe. L'impression professionnelle nécessite généralement 3mm de fond perdu."
-        case .exportMode: return "Mode d'export"
+        case .includeBleed: return "Inclure le fond perdu"
+        case .bleedMargin: return "Marge de fond perdu"
+        case .exportMode: return "Mode d'exportation"
         case .singlePages: return "Pages simples"
         case .spreads: return "Doubles pages"
         case .productionWrap: return "Production"
         case .printMarks: return "Marques d'impression"
         case .cropMarks: return "Traits de coupe"
+        case .cropMarksHelp: return "Ajoute des lignes fines aux coins pour guider la découpe."
         case .registrationMarks: return "Repères de calage"
+        case .registrationMarksHelp: return "Ajoute des cibles pour aligner les séparations de couleurs."
         case .colorBars: return "Barres de couleur"
-        case .pageInfo: return "Info page"
-        case .bookInfo: return "Info livre"
-        case .exporting: return "Export en cours..."
-        case .exportComplete: return "Export terminé"
-        case .exportFailed: return "Échec de l'export"
-        case .estimatedSize: return "Taille estimée"
-        case .customDPI: return "Personnalisé:"
-        case .impositionPreview: return "Aperçu d'imposition"
+        case .colorBarsHelp: return "Ajoute des barres de couleur pour calibrer les couleurs."
+        case .pageInfo: return "Informations de page"
+        case .pageInfoHelp: return "Imprime le nom du fichier et le numéro de page à l'extérieur."
+        case .bookInfo: return "Résumé du livre"
+        case .exporting: return "Exportation..."
+        case .exportComplete: return "Exportation terminée"
+        case .exportFailed(let error): return "Échec de l'exportation: \(error)"
+        case .exportSuccessDetailed(let binding, let pages, _, let sheets, let size, let file):
+            if sheets > 0 {
+                return "Exporté avec succès \(binding) PDF\nPages PDF: \(pages) (format Spread)\nFeuilles: \(sheets) papier \(size) (Recto-verso)\nPoids: \(file)"
+            } else {
+                return "Exporté avec succès \(pages) pages\nPoids: \(file)"
+            }
+        case .estimatedSize: return "Taille de fichier estimée"
+        case .impositionPreview: return "Aperçu de l'imposition"
         case .sheet(let num): return "Feuille \(num)"
         case .frontSide: return "Recto"
         case .backSide: return "Verso"
         case .blank: return "Vide"
         case .sheets(let count): return "\(count) feuilles"
         
-        case .cropMarksHelp: return "Lignes indiquant où couper lors de l'impression. Activez cette option pour afficher les traits de coupe dans le PDF."
-        case .registrationMarksHelp: return "Marques de référence pour aligner l'impression multicolore. Activez cette option pour afficher les repères de calage dans le PDF."
-        case .colorBarsHelp: return "Barres de référence pour vérifier la précision des couleurs. Activez cette option pour afficher les barres de couleur dans le PDF."
-        case .pageInfoHelp: return "Informations de métadonnées incluant les numéros de page et les dates. Activez cette option pour afficher les informations de page dans le PDF."
+        case .solid: return "Couleurs unies"
+        case .gradient: return "Dégradés"
+        case .pattern: return "Motifs"
+        case .texture: return "Textures"
+        case .background: return "Arrière-plan"
+        
+        case .innerLabel: return "Intérieur"
+        case .totalLabel: return "Total"
+        case .spineLabel: return "Dos"
+        case .bindingLabel: return "Reliure"
+        case .pagesUnit: return "pages"
+        case .saddleStitchWarning(let total, let needing):
+            return "La reliure à cheval nécessite un nombre total de pages multiple de 4. Actuel : \(total) pages. \(needing) pages blanches seront ajoutées automatiquement."
+        
         case .layerSettings: return "Paramètres de calque"
         case .border: return "Bordure"
         case .style: return "Style"
@@ -1089,7 +1201,7 @@ public enum LocalizedKey {
         case .prioritySmartTemplate: return "Prioriser les recommandations intelligentes"
         case .generatingLayout: return "Génération de la mise en page..."
         case .previousStep: return "Précédent"
-        case .nextStepLayout: return "Suivant: Style de mise en page"
+        case .nextStepLayout: return "Suivant : Style de mise en page"
         case .startGenerating: return "Démarrer la génération"
         case .library: return "Médiathèque"
         case .selectedCount(let count): return "(\(count) sélectionné)"

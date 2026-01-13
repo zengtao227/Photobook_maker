@@ -94,17 +94,18 @@ struct ExportSettingsView: View {
             if let result = exportResult {
                 if result.success {
                     let bindingType = editorState.bookStructure.bindingType
-                    let bindingName = bindingType == .saddleStitch ? "骑马钉" : 
-                                     bindingType == .softcover ? "软皮装" :
-                                     bindingType == .hardcover ? "精装" : "蝴蝶装"
+                    let bindingName = bindingType.displayName(localization: localization)
                     
-                    if result.sheetCount > 0 {
-                        Text("已成功导出 \(bindingName) PDF\nPDF页数: \(result.pageCount) 页（跨页格式）\n打印纸张: \(result.sheetCount) 张 \(result.printPaperSize) 纸（双面打印）\n文件大小: \(formatFileSize(result.fileSize ?? 0))")
-                    } else {
-                        Text("已成功导出 \(result.pageCount) 页\n文件大小: \(formatFileSize(result.fileSize ?? 0))")
-                    }
+                    Text(localization.localized(.exportSuccessDetailed(
+                        binding: bindingName,
+                        pages: result.pageCount,
+                        spreads: result.pageCount,
+                        sheets: result.sheetCount,
+                        paperSize: result.printPaperSize,
+                        fileSize: formatFileSize(result.fileSize ?? 0)
+                    )))
                 } else {
-                    Text("导出失败: \(result.error?.localizedDescription ?? "未知错误")")
+                    Text(localization.localized(.exportFailed(result.error?.localizedDescription ?? "Unknown")))
                 }
             }
         }
@@ -343,17 +344,11 @@ struct ExportSettingsView: View {
             let bindingType = editorState.bookStructure.bindingType
             let isValidForSaddle = totalPages % 4 == 0
             
-            let innerLabel = localization.currentLanguage == .chinese ? "内页" : "Inner"
-            let totalLabel = localization.currentLanguage == .chinese ? "总页数" : "Total"
-            let spineLabel = localization.currentLanguage == .chinese ? "书脊" : "Spine"
-            let bindingLabel = localization.currentLanguage == .chinese ? "装订" : "Binding"
-            let pagesUnit = localization.currentLanguage == .chinese ? "页" : "pages"
-            
             HStack(spacing: 24) {
-                InfoItem(label: innerLabel, value: "\(editorState.bookStructure.totalInnerPages) \(pagesUnit)")
-                InfoItem(label: totalLabel, value: "\(totalPages) \(pagesUnit)")
-                InfoItem(label: spineLabel, value: String(format: "%.1fmm", editorState.bookStructure.spineWidthMM))
-                InfoItem(label: bindingLabel, value: bindingType.displayName(localization: localization))
+                InfoItem(label: localization.localized(.innerLabel), value: "\(editorState.bookStructure.totalInnerPages) \(localization.localized(.pagesUnit))")
+                InfoItem(label: localization.localized(.totalLabel), value: "\(totalPages) \(localization.localized(.pagesUnit))")
+                InfoItem(label: localization.localized(.spineLabel), value: String(format: "%.1fmm", editorState.bookStructure.spineWidthMM))
+                InfoItem(label: localization.localized(.bindingLabel), value: bindingType.displayName(localization: localization))
             }
             .padding()
             .background(themeManager.theme.searchFieldColor.opacity(0.5))
@@ -361,9 +356,8 @@ struct ExportSettingsView: View {
             
             // Warning for saddle stitch
             if bindingType == .saddleStitch && !isValidForSaddle {
-                let warningText = localization.currentLanguage == .chinese 
-                    ? "骑马钉装订需要总页数为 4 的倍数，当前 \(totalPages) 页，将自动添加 \(4 - (totalPages % 4)) 页空白页"
-                    : "Saddle stitch binding requires total pages to be a multiple of 4. Current: \(totalPages) pages. Will automatically add \(4 - (totalPages % 4)) blank pages."
+                let needing = 4 - (totalPages % 4)
+                let warningText = localization.localized(.saddleStitchWarning(total: totalPages, needing: needing))
                 
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")

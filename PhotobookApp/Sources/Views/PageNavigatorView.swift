@@ -26,14 +26,9 @@ struct PageNavigatorView: View {
             // Main navigator
             mainNavigator
         }
-        .frame(height: showMoveDialog ? 280 : 140)
+        .padding(.bottom, 8)
         .animation(.spring(response: 0.3), value: showMoveDialog)
-        .onKeyPress(keys: [.init("z"), .delete], phases: .down) { keyPress in
-            if keyPress.key == .delete {
-                editorState.smartDelete()
-                return .handled
-            }
-            
+        .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
             if keyPress.modifiers.contains(.command) {
                 if keyPress.modifiers.contains(.shift) {
                     // Cmd+Shift+Z = Redo
@@ -247,7 +242,7 @@ struct PageNavigatorView: View {
             
             // Info
             let totalPages = editorState.spreadCount * 2
-            Text("共 \(totalPages) 页")
+            Text(localization.localized(.totalPagesCount(totalPages)))
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 8)

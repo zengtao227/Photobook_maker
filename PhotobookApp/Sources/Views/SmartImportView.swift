@@ -35,7 +35,7 @@ struct SmartImportView: View {
     
     // 选项
     @State private var enableSmartGrouping = true
-    @State private var selectedTemplateStyle: TemplateStyle = .minimal
+    @State private var selectedTemplateStyle: TemplateStyle = .family
     
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
@@ -718,29 +718,12 @@ struct SmartImportView: View {
             let pageWidth = bookContext.pageSize.dimensionsInPoints.width
             let pageHeight = bookContext.pageSize.dimensionsInPoints.height
             
-            // Track current group to enforce event isolation
-            var currentGroupIndex = -1
-            
             // Start by adding the first spread
             editorState.bookStructure.addInnerSpread()
             var currentSpreadIndex = 0
             var nextIsLeft = false // IMPORTANT: Page 1 is Reserved (Cover Back), so we start on Page 2 (Right)
             
             for suggestion in suggestions {
-                // Find which group this suggestion belongs to
-                let suggestionGroupIndex = findGroupIndex(for: suggestion.photos, in: detectedEvents)
-                
-                // EVENT ISOLATION: If group changed and we aren't at the start of a spread, jump to next spread
-                if suggestionGroupIndex != currentGroupIndex && nextIsLeft == false && currentGroupIndex != -1 {
-                    editorState.bookStructure.addInnerSpread()
-                    currentSpreadIndex = editorState.bookStructure.innerSpreads.count - 1
-                    nextIsLeft = true
-                }
-                
-                currentGroupIndex = suggestionGroupIndex
-                
-
-                
                 // Get classified photos for this page
                 let pageClassifiedPhotos = suggestion.photos.compactMap { photo in
                     classifier.classifiedPhotos.first(where: { $0.photo.id == photo.id })
@@ -794,7 +777,7 @@ struct SmartImportView: View {
                     }
                 }
                 
-                // Assign to book and advance
+                // Assign to book and advance sequentially
                 if nextIsLeft {
                     editorState.bookStructure.innerSpreads[currentSpreadIndex].left.layers = newLayers
                     nextIsLeft = false
@@ -807,12 +790,18 @@ struct SmartImportView: View {
                 }
             }
             
-            // Cleanup: Remove last spread ONLY if it is empty AND its removal wouldn't hide filled content (because the right page of the last spread is always a placeholder)
+            // Cleanup: remove the very last spread if completely empty
+            // BUT only if the spread before it has an empty right page (to preserve empty inside-back-cover)
             if editorState.bookStructure.innerSpreads.count > 1 {
-                let last = editorState.bookStructure.innerSpreads.last!
+                let lastIdx = editorState.bookStructure.innerSpreads.count - 1
+                let last = editorState.bookStructure.innerSpreads[lastIdx]
+                
                 if last.left.layers.isEmpty && last.right.layers.isEmpty {
-                    let previous = editorState.bookStructure.innerSpreads[editorState.bookStructure.innerSpreads.count - 2]
-                    if previous.right.layers.isEmpty {
+                    // Check if the spread before it has an empty right page
+                    // If the spread before it has a photo on the right, we MUST keep the empty spread
+                    // to satisfy the "inside back cover must be empty" rule.
+                    let prev = editorState.bookStructure.innerSpreads[lastIdx - 1]
+                    if prev.right.layers.isEmpty {
                         editorState.bookStructure.innerSpreads.removeLast()
                     }
                 }

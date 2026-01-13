@@ -650,24 +650,31 @@ public class EditorState {
         // Shifting these would cause photos to disappear into the placeholder-only slots.
         if indexToDelete == 0 {
             allContents[0].layers = []
+            allContents[0].bgColor = "#FFFFFF"
+            allContents[0].bgType = .solid
+            allContents[0].gradientColors = nil
+            allContents[0].patternType = nil
+            allContents[0].textureType = nil
         } else if indexToDelete == allContents.count - 1 {
             allContents[indexToDelete].layers = []
+            allContents[indexToDelete].bgColor = "#FFFFFF"
+            allContents[indexToDelete].bgType = .solid
+            allContents[indexToDelete].gradientColors = nil
+            allContents[indexToDelete].patternType = nil
+            allContents[indexToDelete].textureType = nil
         } else {
             allContents.remove(at: indexToDelete)
         }
         
-        // Step 3: Rebuild spreads
-        
-        // 1. Trim trailing empty pages (except the first spread)
-        while allContents.count > 2 && allContents.last?.layers.isEmpty == true {
+        // Step 3: Trim trailing empty pages and ensure exactly one empty page at the end
+        // (which acts as the Inside Back Cover)
+        while allContents.count > 1 && allContents.last?.layers.isEmpty == true {
             allContents.removeLast()
         }
         
-        // 2. If the last page now has content, add one more empty page 
-        // to ensure there's always a placeholder-ready spot at the very end.
-        if let last = allContents.last, !last.layers.isEmpty {
-             allContents.append((layers: [], bgColor: "#FFFFFF", bgType: .solid, gradientColors: nil, patternType: nil, textureType: nil))
-        }
+        // Now add exactly one empty page back - this is our mandatory empty Inside Back Cover.
+        // This ensures the book ends with a spread where the right page is empty.
+        allContents.append((layers: [], bgColor: "#FFFFFF", bgType: .solid, gradientColors: nil, patternType: nil, textureType: nil))
         
         let N = allContents.count
         var newSpreads: [(left: PageModel, right: PageModel)] = []
