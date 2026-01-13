@@ -28,7 +28,12 @@ struct PageNavigatorView: View {
         }
         .frame(height: showMoveDialog ? 280 : 140)
         .animation(.spring(response: 0.3), value: showMoveDialog)
-        .onKeyPress(keys: [.init("z")], phases: .down) { keyPress in
+        .onKeyPress(keys: [.init("z"), .delete], phases: .down) { keyPress in
+            if keyPress.key == .delete {
+                editorState.smartDelete()
+                return .handled
+            }
+            
             if keyPress.modifiers.contains(.command) {
                 if keyPress.modifiers.contains(.shift) {
                     // Cmd+Shift+Z = Redo

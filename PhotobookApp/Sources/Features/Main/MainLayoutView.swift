@@ -187,23 +187,26 @@ struct MainLayoutView: View {
         .environment(localization)
         // Global Theme Transition
         .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
-        // Global Delete shortcut
-        .onKeyPress(.delete) {
-            if editorState.selectedLayerId != nil {
-                editorState.deleteSelectedLayer()
-                return .handled
-            }
-            return .ignored
-        }
+        // Global Theme Transition
+        .animation(.easeInOut(duration: 0.3), value: themeManager.currentMode)
         .onChange(of: undoManager, initial: true) { _, newValue in
             editorState.undoManager = newValue
         }
-        // Global Delete shortcut (Cmd + Backspace)
+        // GLOBAL SHORTCUT LAYER
         .background(
-            Button("") {
-                editorState.smartDelete()
+            ZStack {
+                // Option 1: Backspace (Delete key in SwiftUI)
+                Button("") {
+                    editorState.smartDelete()
+                }
+                .keyboardShortcut(.delete, modifiers: [])
+                
+                // Option 2: Cmd + Backspace (Standard macOS delete)
+                Button("") {
+                    editorState.smartDelete()
+                }
+                .keyboardShortcut(.delete, modifiers: .command)
             }
-            .keyboardShortcut(.delete, modifiers: .command)
             .opacity(0)
         )
 
