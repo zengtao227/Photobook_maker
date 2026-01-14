@@ -10,8 +10,9 @@ echo "🚀 开始构建 PhotobookPro..."
 # 清理旧的构建
 echo "🧹 清理旧构建..."
 rm -rf build
-rm -rf PhotobookPro-ARM64.dmg
-rm -rf PhotobookPro-x86_64.dmg
+rm -rf PhotobookApp/.build
+rm -rf PhotobookPro-ARM64*.dmg
+rm -rf PhotobookPro-x86_64*.dmg
 
 # 创建构建目录
 mkdir -p build
@@ -59,9 +60,9 @@ create_app_bundle() {
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>2.0.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -93,7 +94,7 @@ create_dmg() {
     local ARCH=$1
     local APP_DIR="build/PhotobookPro-${ARCH}.app"
     local DMG_DIR="build/dmg-${ARCH}"
-    local DMG_NAME="PhotobookPro-${ARCH}.dmg"
+    local DMG_NAME="PhotobookPro-${ARCH}.v2.dmg"
     
     echo "💿 创建 ${ARCH} DMG..."
     
@@ -126,11 +127,11 @@ echo ""
 echo "✅ 构建完成！"
 echo ""
 echo "📦 DMG 文件:"
-echo "   - PhotobookPro-ARM64.dmg (Apple Silicon: M1/M2/M3)"
-echo "   - PhotobookPro-x86_64.dmg (Intel)"
+echo "   - PhotobookPro-ARM64.v2.dmg (Apple Silicon: M1/M2/M3)"
+echo "   - PhotobookPro-x86_64.v2.dmg (Intel)"
 echo ""
 echo "📊 文件大小:"
-ls -lh PhotobookPro-ARM64.dmg PhotobookPro-x86_64.dmg
+ls -lh PhotobookPro-ARM64.v2.dmg PhotobookPro-x86_64.v2.dmg
 echo ""
 echo "📎 内置贴纸数量:"
 ls PhotobookApp/Resources/Stickers/*.png 2>/dev/null | wc -l | tr -d ' '
