@@ -1,0 +1,3 @@
+[submodule ".agent/skills-hub"]
+	path = .agent/skills-hub
+	url = https://github.com/zengtao227/AI-Skills-Hub.git
