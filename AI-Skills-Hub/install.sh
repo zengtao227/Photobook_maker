@@ -1,25 +1,19 @@
 #!/bin/bash
 
-# Configuration
-SKILLS_SOURCE_DIR="./SkillsHub/skills"
-GLOBAL_RULES_FILE="./SkillsHub/global/thinking_model.md" # NEW
+# Get the directory where the script is located
+HUB_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Configuration (Master Source)
+SKILLS_SOURCE_DIR="$HUB_ROOT/skills"
+GLOBAL_RULES_FILE="$HUB_ROOT/global/thinking_model.md"
+SCRIPTS_DIR="$HUB_ROOT/scripts"
+
+# Target Settings (Current Project)
 ANTIGRAVITY_DIR=".agent/skills"
 CURSOR_RULES_FILE=".cursorrules"
 
 echo "🔌 Starting Universal Skill Adapter..."
-
-# ==========================================
-# 0. Pre-Flight Check (Active Routing)
-# ==========================================
-# If we are running inside the submodule, adjust paths
-if [ -d ".agent/skills-hub" ]; then
-    SKILLS_SOURCE_DIR=".agent/skills-hub/skills"
-    GLOBAL_RULES_FILE=".agent/skills-hub/global/thinking_model.md"
-    SCRIPTS_DIR=".agent/skills-hub/scripts"
-else
-    # We are likely running in standalone mode or initial setup
-    SCRIPTS_DIR="./SkillsHub/scripts"
-fi
+echo "📍 Source Hub: $HUB_ROOT"
 
 # Ensure scripts are executable
 if [ -d "$SCRIPTS_DIR" ]; then
@@ -103,6 +97,7 @@ echo "## 🚦 Active Routing & Tool Selection" >> "$TEMP_CONTENT"
 echo "- IF issue == 'UI/Design' THEN Apply [Premium Design Skill]" >> "$TEMP_CONTENT"
 echo "- IF issue == 'Build Error' THEN Suggest [Xcode Doctor]" >> "$TEMP_CONTENT"
 echo "- IF issue == 'Translation' THEN Apply [SwiftUI Localization Pro]" >> "$TEMP_CONTENT"
+echo "- IF user_query == 'Release' OR user_query == 'Publish' THEN Apply [Binary Release Manager]" >> "$TEMP_CONTENT"
 echo -e "\n\n---\n\n" >> "$TEMP_CONTENT"
 
 # 2.3 Inject Skills
