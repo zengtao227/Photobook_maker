@@ -103,3 +103,17 @@ project.fragment.lock.json
 .agent/
 .cursorrules
 install-skills.sh
+
+# Build Artifacts & Distribution
+*.dmg
+*.pkg
+*.app
+*.exe
+*.msi
+*.zip
+*.tar.gz
+
+# Binary Documents (prefer Markdown)
+*.docx
+*.doc
+*.pdf
