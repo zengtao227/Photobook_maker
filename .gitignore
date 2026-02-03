@@ -79,3 +79,27 @@ Package.resolved
 *.xcodeproj/
 xcuserdata/
 DerivedData/
+
+# .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+artifacts/
+*.cache
+project.lock.json
+project.fragment.lock.json
+
+# .NET Tools
+.dotnet_cli_home/
+.nuget_pkgs/
+
+# AI Assistant Tools (Antigravity/Cursor)
+.agent/
+.cursorrules
+install-skills.sh

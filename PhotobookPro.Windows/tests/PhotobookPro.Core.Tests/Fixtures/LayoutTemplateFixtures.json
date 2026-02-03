@@ -1,0 +1,301 @@
+{
+  "bestByPhotoCount" : [
+    {
+      "count" : 0,
+      "template" : "singleFull"
+    },
+    {
+      "count" : 1,
+      "template" : "singleFull"
+    },
+    {
+      "count" : 2,
+      "template" : "twoVertical"
+    },
+    {
+      "count" : 3,
+      "template" : "threeGrid"
+    },
+    {
+      "count" : 4,
+      "template" : "fourGrid"
+    },
+    {
+      "count" : 5,
+      "template" : "fiveHighlight"
+    },
+    {
+      "count" : 6,
+      "template" : "fourGrid"
+    },
+    {
+      "count" : 7,
+      "template" : "fourGrid"
+    },
+    {
+      "count" : 8,
+      "template" : "fourGrid"
+    },
+    {
+      "count" : 9,
+      "template" : "fourGrid"
+    },
+    {
+      "count" : 10,
+      "template" : "fourGrid"
+    }
+  ],
+  "schemaVersion" : 1,
+  "templates" : [
+    {
+      "name" : "singleFull",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0,
+            "y" : 0
+          },
+          "size" : {
+            "height" : 1,
+            "width" : 1
+          }
+        }
+      ]
+    },
+    {
+      "name" : "singleCentered",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.1,
+            "y" : 0.1
+          },
+          "size" : {
+            "height" : 0.8,
+            "width" : 0.8
+          }
+        }
+      ]
+    },
+    {
+      "name" : "twoVertical",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.1,
+            "y" : 0.05
+          },
+          "size" : {
+            "height" : 0.425,
+            "width" : 0.8
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.1,
+            "y" : 0.525
+          },
+          "size" : {
+            "height" : 0.425,
+            "width" : 0.8
+          }
+        }
+      ]
+    },
+    {
+      "name" : "twoHorizontal",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.1
+          },
+          "size" : {
+            "height" : 0.8,
+            "width" : 0.425
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.525,
+            "y" : 0.1
+          },
+          "size" : {
+            "height" : 0.8,
+            "width" : 0.425
+          }
+        }
+      ]
+    },
+    {
+      "name" : "threeGrid",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.05
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.9
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.52
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.52,
+            "y" : 0.52
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        }
+      ]
+    },
+    {
+      "name" : "threeArtistic",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.1,
+            "y" : 0.1
+          },
+          "size" : {
+            "height" : 0.8,
+            "width" : 0.5
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.65,
+            "y" : 0.1
+          },
+          "size" : {
+            "height" : 0.35,
+            "width" : 0.25
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.65,
+            "y" : 0.55
+          },
+          "size" : {
+            "height" : 0.35,
+            "width" : 0.25
+          }
+        }
+      ]
+    },
+    {
+      "name" : "fourGrid",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.05
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.52,
+            "y" : 0.05
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.52
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.52,
+            "y" : 0.52
+          },
+          "size" : {
+            "height" : 0.43,
+            "width" : 0.43
+          }
+        }
+      ]
+    },
+    {
+      "name" : "fiveHighlight",
+      "slots" : [
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.05
+          },
+          "size" : {
+            "height" : 0.4,
+            "width" : 0.9
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.05,
+            "y" : 0.5
+          },
+          "size" : {
+            "height" : 0.45,
+            "width" : 0.2
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.275,
+            "y" : 0.5
+          },
+          "size" : {
+            "height" : 0.45,
+            "width" : 0.2
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.5,
+            "y" : 0.5
+          },
+          "size" : {
+            "height" : 0.45,
+            "width" : 0.2
+          }
+        },
+        {
+          "origin" : {
+            "x" : 0.725,
+            "y" : 0.5
+          },
+          "size" : {
+            "height" : 0.45,
+            "width" : 0.2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PhotobookPro.Windows.UI.MainWindow"
+        Width="1000" Height="700"
+        Title="PhotobookPro">
+  <StackPanel Margin="24" Spacing="12">
+    <TextBlock FontSize="24">PhotobookPro Windows</TextBlock>
+    <TextBlock Opacity="0.7">Avalonia UI + .NET 8</TextBlock>
+    <Button Name="OpenBundleButton" Width="240">打开 .photobook 项目</Button>
+    <Button Name="RelinkAssetsButton" Width="240">选择媒体根目录（可选）</Button>
+    <Button Name="ExportPdfButton" Width="240">导出 PDF</Button>
+    <TextBlock Name="StatusText" Opacity="0.8" TextWrapping="Wrap" />
+  </StackPanel>
+</Window>
