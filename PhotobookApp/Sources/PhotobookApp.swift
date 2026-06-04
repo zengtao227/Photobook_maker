@@ -97,8 +97,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         saveWindowFrame(window)
     }
     
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        return .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
-        // Save window frame before closing
         if let window = NSApp.windows.first {
             saveWindowFrame(window)
         }
@@ -187,6 +190,12 @@ struct PhotobookApp: App {
         .windowStyle(.automatic)
         .windowResizability(.contentSize)
         .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("退出 PhotobookPro") {
+                    NSApp.terminate(nil)
+                }
+                .keyboardShortcut("q", modifiers: .command)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("新建项目") {
                     createNewProject()
