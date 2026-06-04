@@ -2,15 +2,19 @@
 
 _Last updated: 2026-06-04_
 
-This document summarizes the current direction of `Photobook_maker` and proposes a practical development roadmap for improving PDF generation quality, export efficiency, maintainability, and future extensibility.
+This document summarizes the current development direction of `Photobook_maker` after review by multiple AI assistants and repository inspection.
 
-The goal of this document is to help the next development session — human or AI-assisted — quickly understand what to improve next and why.
+The most important correction to the earlier plan is this:
+
+> The project already contains a `CGPDFExporter.swift` prototype. Therefore, high-quality vector-oriented PDF export is not a distant experimental Phase 5 task. It should be moved forward and treated as an existing prototype that needs repair, validation, and UI integration.
+
+The next development goal is to turn the current PDF export system into a reliable print-oriented pipeline while preserving existing raster exporters as fallback paths.
 
 ---
 
 ## 1. Current Project Positioning
 
-`Photobook_maker` is already more than a simple image-to-PDF script. It is a macOS native Swift / SwiftUI photo book creator focused on generating print-ready PDF files.
+`Photobook_maker` is a macOS native Swift / SwiftUI photo book creator focused on generating print-ready PDF files.
 
 Current capabilities include:
 
@@ -24,140 +28,98 @@ Current capabilities include:
 - Supporting double-sided and saddle-stitch booklet export.
 - Targeting print providers such as Fotofabrik and epubli.
 
-The current implementation is already strong in the area of practical PDF generation for personal photo books, especially compared with many small open-source projects that only combine images into a PDF.
+The project is already stronger than a simple image-to-PDF generator. Its next growth area is professional export correctness: regression testing, vector PDF output, imposition reuse, font embedding, and color management.
 
 ---
 
-## 2. Current Export Architecture Observations
+## 2. Key Repository Findings That Changed the Roadmap
 
-The current export pipeline appears to follow this general pattern:
+### 2.1 `CGPDFExporter.swift` already exists
 
-1. Prepare page or spread data.
-2. Preload original or filtered images.
-3. Render SwiftUI / Canvas content using `ImageRenderer`.
-4. Convert the rendered result into `CGImage` / `NSImage`.
-5. Insert the rendered image into a `PDFDocument` as a `PDFPage`.
-6. Write the PDF file to disk.
-
-This approach is practical and reliable, but it has several limitations:
-
-- The whole page or spread becomes one large raster image inside the PDF.
-- Text, crop marks, page numbers, and vector-like elements are rasterized.
-- PDF files can become larger than necessary.
-- Re-exporting can be slow because images and filters may be recalculated.
-- Export logic is partly duplicated across spread, double-sided, and saddle-stitch exporters.
-- PDF generation, imposition, rendering, and image preparation are currently tightly coupled.
-
-The next development stage should focus on separating these responsibilities.
-
----
-
-## 3. Recommended Architecture Direction
-
-The project should gradually move toward a modular export architecture.
-
-Recommended modules:
+The repository already contains a Core Graphics based PDF exporter:
 
 ```text
-PhotoBookApp
-├── Import
-│   ├── PhotoImportService
-│   └── EXIFReader
-├── Layout
-│   ├── LayoutTemplate
-│   ├── TemplatePreset
-│   └── AutoLayoutEngine
-├── Rendering
-│   ├── PageRenderService
-│   ├── SpreadRenderService
-│   └── PreviewRenderService
-├── Export
-│   ├── PDFExportConfig
-│   ├── RasterPDFExporter
-│   ├── VectorPDFExporter
-│   ├── PDFWriteService
-│   └── ExportPresetService
-├── Imposition
-│   ├── ImpositionService
-│   ├── SaddleStitchImposition
-│   ├── SequentialDoubleSidedImposition
-│   └── BlankPagePaddingService
-├── Preflight
-│   ├── PDFPreflightChecker
-│   ├── ImageResolutionChecker
-│   └── PrintProviderCompatibilityChecker
-└── Cache
-    ├── ImageCacheService
-    ├── FilteredImageCache
-    └── ThumbnailCache
+PhotobookApp/Sources/Services/CGPDFExporter.swift
 ```
 
-The main idea is:
+It already uses `CGContext(url:mediaBox:)` and includes logic for:
 
-- Rendering should not decide page order.
-- Imposition should not render images.
-- PDF writing should not know about UI state.
-- Filters and image preparation should be cached and reusable.
-- Export presets should describe print requirements instead of being hard-coded across exporters.
+- `MediaBox`
+- `TrimBox`
+- `BleedBox`
+- Vector background rectangles
+- Vector crop marks
+- Direct drawing into a PDF `CGContext`
 
----
+This changes the priority significantly. The task is not to create a new vector exporter from scratch, but to fix and integrate the existing prototype.
 
-## 4. Highest Priority Improvements
+### 2.2 The likely text rendering bug is in `drawTextLayer`
 
-### 4.1 Add Image and Filter Caching
-
-Current export logic preloads filtered images before export. This is correct, but expensive if repeated often.
-
-Add a cache key based on:
-
-```text
-photoUrl
-fileModificationDate
-filterType
-brightness
-contrast
-saturation
-vignetteIntensity
-sharpenIntensity
-temperature
-targetPixelSize
-```
-
-Expected benefits:
-
-- Faster repeated exports.
-- Faster preview updates.
-- Less duplicated filter processing.
-- Better responsiveness when adjusting export settings.
-
-Suggested implementation:
+`CGPDFExporter.drawTextLayer` uses:
 
 ```swift
-struct FilteredImageCacheKey: Hashable {
-    let photoURL: URL
-    let fileModificationDate: Date?
-    let filterType: FilterType
-    let brightness: Double
-    let contrast: Double
-    let saturation: Double
-    let vignetteIntensity: Double
-    let sharpenIntensity: Double
-    let temperature: Double
-    let targetPixelSize: CGSize
-}
+attributedString.draw(in: textRect)
 ```
 
-Then create a dedicated `FilteredImageCache` service used by all exporters.
+However, `NSAttributedString.draw(in:)` depends on AppKit's current `NSGraphicsContext`. If the PDF `CGContext` is not wrapped and set as `NSGraphicsContext.current`, text can silently fail to render or behave inconsistently.
 
-Priority: **Very high**
+Short-term fix:
+
+```swift
+let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = nsContext
+attributedString.draw(in: textRect)
+NSGraphicsContext.restoreGraphicsState()
+```
+
+Longer-term print-quality direction:
+
+- Move text rendering to Core Text.
+- Verify that fonts are embedded in the generated PDF.
+- Use `pdffonts` or an equivalent tool to check font embedding.
+
+### 2.3 The future pipeline should inject `CGContext`, not bake in `CGImage`
+
+The old plan risked turning the new export architecture into this pattern:
+
+```text
+PageRenderService -> CGImage -> PDFWriteService
+```
+
+That would permanently bake rasterization into the architecture.
+
+The corrected direction is:
+
+```text
+PDFContextExporter opens CGContext
+    ↓
+Inject CGContext into page/layer drawing services
+    ↓
+Draw backgrounds, photos, text, stickers, crop marks, and PDF boxes directly
+```
+
+The existing `ImageRenderer` / `PDFDocument` exporters should remain as stable raster fallback paths, but they should not define the future architecture.
+
+### 2.4 Color management is a first-class print concern
+
+The earlier plan underweighted color management.
+
+A practical roadmap should not immediately force CMYK conversion, because many consumer photo book services accept RGB PDF. However, the app should explicitly manage and check color.
+
+Recommended staged approach:
+
+1. Preflight checks for image color spaces and missing ICC information.
+2. Explicit sRGB ICC profile handling for exported PDFs.
+3. Research PDF/X compliance and target ICC profiles for professional workflows.
+
+Color management should be part of the product roadmap, not an afterthought.
 
 ---
 
-### 4.2 Refactor the PDF Export Pipeline
+## 3. Corrected Architecture Direction
 
-Currently, `SpreadPDFExporter`, `SequentialDoubleSidedExporter`, and `SaddleStitchExporter` appear to share similar responsibilities.
-
-Recommended target pipeline:
+Recommended export architecture:
 
 ```text
 BookStructure
@@ -166,311 +128,171 @@ PageSequenceBuilder
     ↓
 ImpositionService
     ↓
-PageRenderService / SpreadRenderService
-    ↓
-PDFWriteService
+PDFContextExporter / RasterPDFExporter
     ↓
 Final PDF
 ```
 
-Suggested services:
-
-#### `PageSequenceBuilder`
-
-Builds a normal logical page sequence:
+Important design rule:
 
 ```text
-front cover
-inner page 1
-inner page 2
-...
-back cover
+For high-quality export, PDF writing opens the CGContext first.
+The drawing layer receives that context and draws directly into it.
 ```
 
-#### `ImpositionService`
+Recommended modules:
 
-Transforms the logical page sequence into a print sequence:
+```text
+PhotoBookApp
+├── Export
+│   ├── PDFExportConfig
+│   ├── RasterPDFExporter              # Existing ImageRenderer/PDFDocument path
+│   ├── CGPDFExporter                  # Existing vector-oriented prototype
+│   ├── PDFContextExporter             # Future cleaned-up CGPDFExporter direction
+│   └── ExportPresetService
+├── Drawing
+│   ├── PDFPageDrawingService
+│   ├── PDFLayerDrawingService
+│   ├── PDFTextDrawingService
+│   ├── PDFImageDrawingService
+│   └── PDFPrintMarksDrawingService
+├── Imposition
+│   ├── ImpositionService
+│   ├── SaddleStitchImposition
+│   ├── SequentialDoubleSidedImposition
+│   └── BlankPagePaddingService
+├── Regression
+│   ├── GoldenPDFSamples
+│   └── PDFPixelDiffTool
+├── Preflight
+│   ├── PDFPreflightChecker
+│   ├── ImageResolutionChecker
+│   ├── FontEmbeddingChecker
+│   ├── ColorSpaceChecker
+│   └── PrintProviderCompatibilityChecker
+└── Cache
+    ├── FilteredImageCache
+    └── ThumbnailCache
+```
 
-- Normal single-page PDF.
-- Spread PDF.
-- Sequential double-sided PDF.
-- Saddle-stitch imposed PDF.
-- Future hardcover cover / dust jacket layout.
+The architecture should avoid duplicating page-order and imposition logic across exporters.
 
-#### `PDFWriteService`
+---
 
-Receives rendered page images or vector drawing commands and writes the final PDF.
+## 4. Revised Session Plan
 
-Expected benefits:
+### Session 1: Golden PDF baseline and regression comparison tool
 
-- Less duplicated export logic.
-- Easier to add new print modes.
-- Easier to test imposition separately.
-- Easier for other AI tools to reason about the code.
+Core goal:
+
+Create a regression safety net before changing any PDF export architecture.
+
+Why this must come first:
+
+PDF export changes can easily break:
+
+- Coordinate flipping
+- Bleed offset
+- Crop marks
+- Saddle-stitch page order
+- Text rotation
+- Photo cropping
+- Page boxes
+- Left/right spread placement
+
+These regressions may be subtle on screen but expensive in print.
+
+Tasks:
+
+- [ ] Add a `pymupdf`-based PDF rendering and pixel comparison script.
+- [ ] Create 3-5 representative exported PDFs manually from the current app.
+- [ ] Store them as golden baseline samples outside normal source code if they are large, or document their expected location.
+- [ ] Render baseline PDFs to PNG at 150 DPI or 300 DPI.
+- [ ] Compare future exports against golden renders.
+
+Recommended baseline samples:
+
+```text
+01_basic_spread.pdf
+02_text_and_rotation.pdf
+03_bleed_cropmarks.pdf
+04_saddle_stitch_8_pages.pdf
+05_mixed_filters_stickers.pdf
+```
+
+Completion standard:
+
+- 5 sample PDFs exist locally or in an agreed regression folder.
+- The comparison script can render PDFs to PNG.
+- The comparison script can report pixel-level differences.
+- The workflow is documented clearly enough for another AI or developer to run.
+
+Priority: **Highest**
+
+---
+
+### Session 2: Repair and integrate `CGPDFExporter` for spread mode
+
+Core goal:
+
+Make the existing Core Graphics PDF exporter usable for normal spread export.
+
+Scope boundary:
+
+Session 2 should **only** cover spread mode. Saddle-stitch support for `CGPDFExporter` should wait until Session 3, after `ImpositionService` exists.
+
+Tasks:
+
+- [ ] Fix `drawTextLayer` so text actually renders into the PDF context.
+- [ ] Prefer Core Text for a robust long-term implementation, or use `NSGraphicsContext` as a short-term bridge.
+- [ ] Add a UI option such as `High Quality PDF Export` or `CGPDF Export`.
+- [ ] Export a spread PDF using `CGPDFExporter`.
+- [ ] Verify that text remains vector text where possible.
+- [ ] Verify font embedding using `pdffonts` or an equivalent tool.
+- [ ] Compare output against golden baseline renders.
+
+Font validation command:
+
+```bash
+brew install poppler
+pdffonts output.pdf
+```
+
+Completion standard:
+
+- The UI can choose the CGPDF spread exporter.
+- Text appears in CGPDF output.
+- Font embedding is checked.
+- If fonts are not embedded, the issue is either fixed or explicitly documented as a blocker.
+- Golden PDF pixel comparison shows no unacceptable visual regression for spread-mode samples.
 
 Priority: **Very high**
 
 ---
 
-### 4.3 Add Export Preflight Checks
+### Session 3: Extract `ImpositionService` and update all exporters
 
-Before exporting, the app should run a preflight check similar to professional print software.
+Core goal:
 
-Recommended checks:
+Remove duplicated page-order and imposition logic.
 
-- Page size is correct.
-- Bleed is enabled and set to expected value.
-- DPI is 300 or higher.
-- All images are available.
-- No missing image files.
-- No unsupported image formats.
-- Low-resolution image warning.
-- Saddle-stitch page count is a multiple of 4 after padding.
-- Export mode matches the selected print provider.
-- Text and important objects are inside the safe area.
-- File size estimate is reasonable.
+Important requirement:
 
-Example UI result:
-
-```text
-Preflight Result
-
-✅ Page size: A6
-✅ DPI: 300
-✅ Bleed: 3 mm
-✅ Total pages: 48
-✅ Saddle-stitch compatible: yes
-⚠️ 3 photos may be below recommended print resolution
-⚠️ 1 text layer is close to trim edge
-```
-
-Expected benefits:
-
-- Fewer bad print exports.
-- Easier debugging.
-- More confidence before ordering from Fotofabrik or epubli.
-
-Priority: **High**
-
----
-
-### 4.4 Keep Raster Export, Add Experimental Vector Export
-
-The current raster-based export method should be kept because it is simple and reliable.
-
-However, add a second export mode:
-
-```text
-Export Method
-- Standard Raster Export
-- Experimental High-Quality Export
-```
-
-The high-quality exporter should eventually:
-
-- Draw background colors as vector rectangles.
-- Draw text as real PDF text where possible.
-- Draw crop marks, fold marks, registration marks, and page info as vector paths.
-- Downsample large photos to the required print resolution before embedding.
-- Avoid rasterizing the entire page when not necessary.
-
-Expected benefits:
-
-- Smaller PDF files.
-- Sharper text.
-- Sharper print marks.
-- Better long-term print quality.
-
-Important note:
-
-Do not replace the current exporter immediately. Build the vector exporter as an experimental option first.
-
-Priority: **High, but after caching and pipeline refactor**
-
----
-
-### 4.5 Move Layout Templates Toward Data-Driven Presets
-
-Current layout templates appear to be code-driven. For faster iteration, templates should become more data-driven.
-
-Possible future template format:
-
-```json
-{
-  "id": "a6_4_photo_grid",
-  "name": "A6 4 Photo Grid",
-  "pageSize": "A6",
-  "safeMarginMM": 5,
-  "bleedMM": 3,
-  "photoSlots": [
-    { "x": 10, "y": 10, "width": 80, "height": 55 },
-    { "x": 10, "y": 70, "width": 80, "height": 55 }
-  ],
-  "textSlots": [],
-  "autoFillStrategy": "chronological"
-}
-```
-
-Benefits:
-
-- Easier to add templates.
-- Easier to let AI generate new templates.
-- Easier to support print-provider-specific presets.
-- Easier to test layout logic separately from SwiftUI.
-
-Priority: **Medium to high**
-
----
-
-## 5. Open-Source Projects Worth Studying
-
-The following projects are useful references, but they should be treated as design references, not necessarily direct dependencies.
-
-### 5.1 `Thors161/PhotoBookGenerator`
-
-Repository:
-
-```text
-https://github.com/Thors161/PhotoBookGenerator
-```
-
-Why it is relevant:
-
-- Similar overall goal: generating a PDF photo book from photos.
-- Contains concepts such as pages, layouts, images, and editing UI.
-- Useful as a reference for object model and editor structure.
-
-Important caution:
-
-- License is GPL-2.0.
-- Do not copy code directly into this project unless the license implications are fully understood.
-- Best used as an architectural reference.
-
----
-
-### 5.2 `josch/img2pdf`
-
-Repository:
-
-```text
-https://github.com/josch/img2pdf
-```
-
-Why it is relevant:
-
-- Strong reference for efficient image-to-PDF generation.
-- Focuses on avoiding unnecessary image recompression.
-- Useful for thinking about PDF size, image quality, and export speed.
-
-Ideas to borrow:
-
-- Avoid recompressing JPEG images when possible.
-- Separate image embedding from page layout.
-- Treat PDF generation as a data pipeline, not just a screen render.
-
----
-
-### 5.3 `pdfarranger/pdfarranger`
-
-Repository:
-
-```text
-https://github.com/pdfarranger/pdfarranger
-```
-
-Why it is relevant:
-
-- Good reference for PDF page manipulation.
-- Supports rearranging, rotating, cropping, splitting, and combining PDF pages.
-- Useful for future PDF post-processing and imposition ideas.
-
-Ideas to borrow:
-
-- Separate content generation from PDF page manipulation.
-- Provide clear page-level operations.
-- Treat page order as data that can be transformed.
-
----
-
-### 5.4 `pikepdf/pikepdf`
-
-Repository:
-
-```text
-https://github.com/pikepdf/pikepdf
-```
-
-Why it is relevant:
-
-- Python PDF manipulation library based on QPDF.
-- Useful for understanding PDF structure and page operations.
-- Could become a future helper tool if a Python-based export or post-processing workflow is ever introduced.
-
-Ideas to borrow:
-
-- Page-level transformations.
-- Metadata handling.
-- PDF optimization and repair concepts.
-
----
-
-### 5.5 `scribusproject/scribus`
-
-Repository:
-
-```text
-https://github.com/scribusproject/scribus
-```
-
-Why it is relevant:
-
-- Mature open-source desktop publishing application.
-- Useful conceptual reference for print-ready layout software.
-
-Ideas to borrow conceptually:
-
-- Master pages.
-- Preflight checks.
-- Object alignment.
-- Safe areas and bleed areas.
-- Professional export presets.
-- Missing font / missing image checks.
-
-This project is large and should not be copied directly. It is best used as a design reference.
-
----
-
-## 6. Suggested Development Roadmap
-
-### Phase 1: Stabilize and Speed Up Current Export
-
-Tasks:
-
-- [ ] Add `FilteredImageCache`.
-- [ ] Add thumbnail cache if not already present.
-- [ ] Reuse cached filtered images across preview and export.
-- [ ] Add export progress detail, not only percentage.
-- [ ] Add export error reporting for missing files and render failures.
-- [ ] Reduce debug `print` noise or move it behind a debug flag.
-
-Expected result:
-
-Current export becomes faster and easier to debug without changing the output format.
-
----
-
-### Phase 2: Refactor Export Architecture
+It is not enough for only `CGPDFExporter` to call `ImpositionService`. Existing raster exporters must also be moved to the shared imposition service, otherwise the project will still have duplicated imposition logic.
 
 Tasks:
 
 - [ ] Create `PageSequenceBuilder`.
 - [ ] Create `ImpositionService`.
-- [ ] Move saddle-stitch page-order logic into a testable standalone service.
-- [ ] Create `PDFWriteService`.
-- [ ] Make `SpreadPDFExporter`, `SequentialDoubleSidedExporter`, and `SaddleStitchExporter` use shared services.
-- [ ] Add unit tests for page ordering.
+- [ ] Move saddle-stitch page-order logic into a standalone testable service.
+- [ ] Move blank-page padding to shared logic.
+- [ ] Make `SaddleStitchExporter` call `ImpositionService`.
+- [ ] Make `SequentialDoubleSidedExporter` call `ImpositionService`.
+- [ ] Make spread or normal exporters use shared page sequence logic where practical.
+- [ ] Prepare `CGPDFExporter` to use the same imposition result in a later step.
+- [ ] Add unit tests for page order.
 
-Suggested tests:
+Suggested unit tests:
 
 ```text
 4 pages  -> Sheet 1: Front [4,1], Back [2,3]
@@ -478,151 +300,283 @@ Suggested tests:
 12 pages -> Sheet 1: Front [12,1], Back [2,11]
 ```
 
-Expected result:
+Completion standard:
 
-Export modes become easier to maintain and extend.
+- Saddle-stitch unit tests pass.
+- Existing raster saddle-stitch and double-sided exporters no longer own independent imposition logic.
+- Golden PDF comparison shows no unacceptable visual regression.
 
----
-
-### Phase 3: Add Preflight System
-
-Tasks:
-
-- [ ] Create `PDFPreflightChecker`.
-- [ ] Add image resolution checks.
-- [ ] Add missing image checks.
-- [ ] Add safe-area warnings.
-- [ ] Add page-count compatibility checks.
-- [ ] Add print-provider preset checks.
-- [ ] Show preflight results before export.
-
-Expected result:
-
-The app becomes safer for real print orders.
+Priority: **Very high**
 
 ---
 
-### Phase 4: Add Print Provider Presets
+### Session 4: Add `FilteredImageCache` with quantized floating-point keys
 
-Possible presets:
+Core goal:
 
-```text
-Fotofabrik A6 Hardcover
-Fotofabrik Square
-Epubli A6
-Generic A5
-Generic A4
-Custom
+Speed up repeated preview/export operations and avoid recomputing filtered images unnecessarily.
+
+Important detail:
+
+Do not use raw floating-point filter parameters directly as cache keys. Tiny precision differences can cause unnecessary cache misses.
+
+Use quantized keys:
+
+```swift
+func quantize(_ value: Double, precision: Double = 1000) -> Int {
+    Int((value * precision).rounded())
+}
 ```
 
-Each preset should define:
+Cache key should include:
 
-- Page size.
-- Bleed.
-- Safe margin.
-- Recommended DPI.
-- Max page count.
-- Export mode.
-- Whether saddle-stitch is allowed.
-- Whether cover is separate or included.
+```text
+photoUrl
+fileModificationDate
+filterType
+quantized brightness
+quantized contrast
+quantized saturation
+quantized vignetteIntensity
+quantized sharpenIntensity
+quantized temperature
+targetPixelSize
+```
 
-Expected result:
+Completion standard:
 
-Users do not need to manually understand every PDF setting.
+- Repeated export uses cached filtered images.
+- Cache invalidates when the source file or filter parameters change.
+- Repeated export timing is measured before and after.
+
+Priority: **High**
 
 ---
 
-### Phase 5: Experimental High-Quality PDF Exporter
+### Session 5: Add Preflight system with color management placeholders
+
+Core goal:
+
+Start treating export readiness as a first-class feature.
 
 Tasks:
 
-- [ ] Create `VectorPDFExporter`.
-- [ ] Draw crop marks and registration marks as vector paths.
-- [ ] Draw background as vector rectangles.
-- [ ] Investigate drawing text as real PDF text.
-- [ ] Downsample photos to exact required print resolution.
-- [ ] Compare output size and quality against current raster exporter.
+- [ ] Add a basic `PDFPreflightChecker`.
+- [ ] Check page size.
+- [ ] Check DPI.
+- [ ] Check bleed.
+- [ ] Check `TrimBox` / `BleedBox` presence where applicable.
+- [ ] Check image availability.
+- [ ] Check low-resolution images.
+- [ ] Check text objects near trim/safe area.
+- [ ] Check color space information where available.
+- [ ] Warn about unknown color profiles.
+- [ ] Add print-provider preset fields for ICC / PDF-X expectations.
+- [ ] Add placeholder for future sRGB ICC embedding and PDF/X compliance checks.
+
+Color management stages:
+
+```text
+Stage 1: Detect and report color spaces / missing ICC profiles.
+Stage 2: Explicitly support sRGB ICC profile handling in export.
+Stage 3: Research PDF/X and optional CMYK workflows for professional print providers.
+```
+
+Completion standard:
+
+- A preflight result is shown before export.
+- Color management appears in the preflight model, even if conversion is not implemented yet.
+- Warnings are understandable to non-expert users.
+
+Priority: **High**
+
+---
+
+## 5. Golden PDF Regression Strategy
+
+The project should use rendered image comparison for PDF regression tests.
+
+Reason:
+
+- PDF files are binary and not useful in normal `git diff`.
+- Internal PDF object ordering can change even if visual output is identical.
+- For this app, visual correctness is the most important regression target.
+
+Recommended tool:
+
+```text
+Python + pymupdf / fitz
+```
+
+Basic rendering approach:
+
+```python
+import fitz
+
+doc = fitz.open("output.pdf")
+for i, page in enumerate(doc):
+    pix = page.get_pixmap(dpi=150)
+    pix.save(f"page_{i + 1}.png")
+```
+
+Recommended comparison levels:
+
+1. Render each PDF page to PNG.
+2. Compare page counts and rendered dimensions.
+3. Compute pixel differences.
+4. Report mean difference, max difference, and changed pixel percentage.
+5. Save diff images for manual inspection.
+
+The first implementation does not need to be perfect. It only needs to detect obvious regressions before export architecture changes.
+
+---
+
+## 6. Font Embedding Validation
+
+Font embedding must be checked during Session 2, not deferred to the final Preflight phase.
+
+Reason:
+
+If CGPDF output draws real text but fails to embed fonts, print providers may substitute fonts and cause layout changes.
+
+Recommended command-line check:
+
+```bash
+brew install poppler
+pdffonts output.pdf
+```
+
+Important column:
+
+```text
+emb
+```
 
 Expected result:
 
-A future-proof PDF exporter that can generate smaller and sharper PDFs.
+```text
+emb = yes
+```
+
+If `pdffonts` is not available, investigate PyMuPDF or another PDF inspection approach, but `pdffonts` is the simplest first tool.
 
 ---
 
-### Phase 6: Data-Driven Template System
+## 7. Open-Source Projects Worth Studying
 
-Tasks:
+These projects are useful references, but they should be treated as design references rather than direct sources for copied code.
 
-- [ ] Define template schema.
-- [ ] Move several existing layouts into template presets.
-- [ ] Add template preview.
-- [ ] Add automatic photo fill by chronological order.
-- [ ] Add support for AI-generated layout templates.
+### 7.1 `Thors161/PhotoBookGenerator`
 
-Expected result:
+```text
+https://github.com/Thors161/PhotoBookGenerator
+```
 
-New photo book layouts can be added much faster.
+Relevant because it has a similar broad goal: generating a PDF photo book from photos.
+
+Caution:
+
+- License is GPL-2.0.
+- Do not copy code directly unless license implications are fully understood.
+
+### 7.2 `josch/img2pdf`
+
+```text
+https://github.com/josch/img2pdf
+```
+
+Relevant for efficient image-to-PDF generation and avoiding unnecessary image recompression.
+
+### 7.3 `pdfarranger/pdfarranger`
+
+```text
+https://github.com/pdfarranger/pdfarranger
+```
+
+Relevant for PDF page manipulation and page-order thinking.
+
+### 7.4 `pikepdf/pikepdf`
+
+```text
+https://github.com/pikepdf/pikepdf
+```
+
+Relevant for PDF structure, page operations, metadata, and possible future PDF post-processing.
+
+### 7.5 `scribusproject/scribus`
+
+```text
+https://github.com/scribusproject/scribus
+```
+
+Relevant as a conceptual reference for desktop publishing features:
+
+- Master pages
+- Preflight checks
+- Safe areas and bleed
+- Professional export presets
+- Missing font / missing image checks
+- Color management concepts
 
 ---
 
-## 7. Proposed Immediate Next Tasks
-
-The next coding session should probably start with these tasks:
-
-1. Add `FilteredImageCache`.
-2. Add `PageSequenceBuilder`.
-3. Add `ImpositionService` with unit tests for saddle-stitch ordering.
-4. Move duplicate preload/render/write logic into shared services.
-5. Add a basic preflight checker for page count, DPI, bleed, and missing images.
-
-This sequence is recommended because it improves performance and code structure before attempting a more ambitious vector PDF exporter.
-
----
-
-## 8. Design Principle Going Forward
-
-The project should avoid becoming a collection of separate exporters with duplicated logic.
+## 8. Design Principles Going Forward
 
 Preferred principle:
 
 ```text
 One book model
 One logical page sequence
-Multiple imposition strategies
-Multiple renderers
-One PDF writing layer
+Shared imposition strategies
+Raster fallback exporters
+CGContext-based high-quality exporter
+Shared preflight checks
+Shared regression baselines
 ```
 
-This will make the project easier to maintain, easier to test, and easier for future AI tools to analyze or extend.
+Avoid this anti-pattern:
+
+```text
+Each exporter owns its own page order, image preparation, rendering, and PDF writing.
+```
+
+The project should preserve current working raster export behavior while gradually moving high-quality export toward a direct PDF `CGContext` drawing pipeline.
 
 ---
 
 ## 9. Notes for Future AI Assistants
 
-When analyzing this project, pay special attention to:
+When analyzing this project, inspect these files first:
 
+- `PhotobookApp/Sources/Services/CGPDFExporter.swift`
+- `PhotobookApp/Sources/Services/SpreadPDFExporter.swift`
+- `PhotobookApp/Sources/Services/SequentialDoubleSidedExporter.swift`
+- `PhotobookApp/Sources/Services/SaddleStitchExporter.swift`
 - `PDFExportConfig`
-- `SpreadPDFExporter`
-- `SequentialDoubleSidedExporter`
-- `SaddleStitchExporter`
 - `SaddleStitchImposition`
 - `BookStructure`
 - `PageModel`
 - `PhotoLayer`
 - `TextLayer`
 - `StickerLayer`
-- Any image filter generation code
-- Any SwiftUI preview or Canvas rendering code
 
 Recommended analysis order:
 
 1. Understand the book model.
 2. Understand page and layer coordinates.
 3. Understand how bleed and trim size are represented.
-4. Understand normal spread export.
-5. Understand double-sided export.
-6. Understand saddle-stitch export.
-7. Identify duplicated rendering or image-loading logic.
-8. Propose refactors that preserve current output behavior.
+4. Understand `CGPDFExporter` and why it is currently not fully used.
+5. Check text rendering and font embedding.
+6. Understand normal spread export.
+7. Understand double-sided export.
+8. Understand saddle-stitch export.
+9. Identify duplicated imposition and image-loading logic.
+10. Preserve golden PDF output before refactoring.
 
-Do not start by rewriting the UI. The highest-value improvements are currently in export architecture, caching, preflight validation, and PDF quality.
+Do not start by rewriting the UI. The highest-value improvements are currently:
+
+1. Golden PDF regression testing.
+2. Repairing and integrating `CGPDFExporter`.
+3. Extracting shared imposition logic.
+4. Adding filtered image caching.
+5. Adding preflight checks with color management placeholders.
