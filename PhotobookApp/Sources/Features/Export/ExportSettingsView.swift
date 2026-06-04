@@ -14,6 +14,7 @@ struct ExportSettingsView: View {
     @State private var showingFilePicker = false
     @State private var exportResult: ExportResult?
     @State private var showResultAlert = false
+    @State private var useVectorExport = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -269,9 +270,20 @@ struct ExportSettingsView: View {
                     }
                 }
             }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("High Quality Vector PDF (Experimental)", isOn: $useVectorExport)
+                    .toggleStyle(.switch)
+                    .foregroundColor(themeManager.theme.textColor)
+                    .font(.subheadline)
+                Text("Uses CGPDFContext for vector crop marks, backgrounds, and text. Not supported for saddle-stitch.")
+                    .font(.caption2)
+                    .foregroundColor(themeManager.theme.secondaryTextColor)
+                    .padding(.leading, 52)
+            }
         }
     }
-    
+
     // MARK: - Print Marks Section
     
     private var printMarksSection: some View {
@@ -653,14 +665,24 @@ struct ExportSettingsView: View {
                 
                 print("   总共\(spreads.count)个跨页")
                 
-                // 使用SpreadPDFExporter导出（ImageRenderer方案，坐标系统简单）
-                try await SpreadPDFExporter.exportBook(
-                    spreads: spreads,
-                    config: pdfConfig,
-                    to: url
-                ) { progress in
-                    exportProgress.currentPage = Int(progress * Double(spreads.count))
-                    exportProgress.totalPages = spreads.count
+                if useVectorExport {
+                    try await CGPDFExporter.exportBook(
+                        spreads: spreads,
+                        config: pdfConfig,
+                        to: url
+                    ) { progress in
+                        exportProgress.currentPage = Int(progress * Double(spreads.count))
+                        exportProgress.totalPages = spreads.count
+                    }
+                } else {
+                    try await SpreadPDFExporter.exportBook(
+                        spreads: spreads,
+                        config: pdfConfig,
+                        to: url
+                    ) { progress in
+                        exportProgress.currentPage = Int(progress * Double(spreads.count))
+                        exportProgress.totalPages = spreads.count
+                    }
                 }
                 
                 pageCount = spreads.count  // PDF页数 = 跨页数
