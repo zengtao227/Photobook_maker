@@ -264,9 +264,26 @@ public class CGPDFExporter {
             width: frame.width,
             height: frame.height
         )
+        let effectiveCornerRadius = max(layer.borderCornerRadius, layer.feathering / 2)
 
-        // 裁剪到图层边界
-        context.clip(to: drawRect)
+        // 投影需要在绘制图片之前设置，并由外层 restoreGState 清除。
+        if layer.shadowOpacity > 0 {
+            context.setShadow(
+                offset: CGSize(width: 0, height: -(layer.shadowRadius / 3)),
+                blur: layer.shadowRadius,
+                color: NSColor.black.withAlphaComponent(layer.shadowOpacity).cgColor
+            )
+        }
+
+        // 裁剪到图层边界；feathering 在 CGPDFExporter 中用增大圆角半径近似。
+        let clipPath = CGPath(
+            roundedRect: drawRect,
+            cornerWidth: effectiveCornerRadius,
+            cornerHeight: effectiveCornerRadius,
+            transform: nil
+        )
+        context.addPath(clipPath)
+        context.clip()
 
         // 应用裁剪变换
         context.saveGState()
@@ -302,6 +319,62 @@ public class CGPDFExporter {
 
         context.draw(cgImage, in: imageDrawRect)
         context.restoreGState()
+
+        // 绘制边框。边框本身不应继承照片投影。
+        if layer.borderWidth > 0 {
+            context.saveGState()
+            context.setShadow(offset: .zero, blur: 0, color: nil)
+            context.setStrokeColor(NSColor(hex: layer.borderColorHex).cgColor)
+            context.setLineWidth(layer.borderWidth)
+
+            switch layer.borderStyle {
+            case .double:
+                let outerPath = CGPath(
+                    roundedRect: drawRect,
+                    cornerWidth: effectiveCornerRadius,
+                    cornerHeight: effectiveCornerRadius,
+                    transform: nil
+                )
+                context.addPath(outerPath)
+                context.strokePath()
+
+                let innerRect = drawRect.insetBy(dx: 4, dy: 4)
+                let innerCornerRadius = max(0, effectiveCornerRadius - 4)
+                let innerPath = CGPath(
+                    roundedRect: innerRect,
+                    cornerWidth: innerCornerRadius,
+                    cornerHeight: innerCornerRadius,
+                    transform: nil
+                )
+                context.addPath(innerPath)
+                context.setLineWidth(max(1, layer.borderWidth / 3))
+                context.strokePath()
+
+            case .dashed:
+                context.setLineDash(phase: 0, lengths: [6, 3])
+                let path = CGPath(
+                    roundedRect: drawRect,
+                    cornerWidth: effectiveCornerRadius,
+                    cornerHeight: effectiveCornerRadius,
+                    transform: nil
+                )
+                context.addPath(path)
+                context.strokePath()
+
+            default:
+                // solid, dotted, and stamp use a solid fallback in this exporter for now.
+                let path = CGPath(
+                    roundedRect: drawRect,
+                    cornerWidth: effectiveCornerRadius,
+                    cornerHeight: effectiveCornerRadius,
+                    transform: nil
+                )
+                context.addPath(path)
+                context.strokePath()
+            }
+
+            context.restoreGState()
+        }
 
         context.restoreGState()
     }
