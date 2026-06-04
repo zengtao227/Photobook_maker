@@ -105,7 +105,7 @@ public class CGPDFExporter {
             // 保存图形状态
             pdfContext.saveGState()
 
-            // Core Graphics使用左下角为原点，需要翻转Y轴
+            // Core Graphics默认是Y-up。这里统一翻转成Y-down，让后续坐标与SwiftUI/PageModel一致。
             pdfContext.translateBy(x: 0, y: mediaBox.height)
             pdfContext.scaleBy(x: 1.0, y: -1.0)
 
@@ -205,6 +205,33 @@ public class CGPDFExporter {
                 )
             }
 
+            if config.includeRegistrationMarks {
+                drawRegistrationMarks(
+                    in: pdfContext,
+                    trimBox: trimBox,
+                    mediaBox: mediaBox
+                )
+            }
+
+            if config.includeColorBars {
+                drawColorBars(
+                    in: pdfContext,
+                    trimBox: trimBox,
+                    mediaBox: mediaBox,
+                    config: config
+                )
+            }
+
+            if config.includePageInfo {
+                drawPageInfo(
+                    in: pdfContext,
+                    mediaBox: mediaBox,
+                    config: config,
+                    pageNumber: index + 1,
+                    totalPages: spreads.count
+                )
+            }
+
             // 恢复图形状态
             pdfContext.restoreGState()
 
@@ -247,17 +274,12 @@ public class CGPDFExporter {
 
         context.saveGState()
 
-        // 转换坐标：SwiftUI使用左上角原点，Core Graphics使用左下角原点
+        // exportBook 已经把PDF坐标系翻成Y-down，直接使用SwiftUI/PageModel坐标。
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
-        // 移动到图层位置
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
-
-        // 应用旋转
+        context.translateBy(x: frame.midX, y: frame.midY)
         context.rotate(by: layer.rotation * .pi / 180)
 
-        // 绘制图片（居中）
         let drawRect = CGRect(
             x: -frame.width / 2,
             y: -frame.height / 2,
@@ -265,40 +287,44 @@ public class CGPDFExporter {
             height: frame.height
         )
         let effectiveCornerRadius = max(layer.borderCornerRadius, layer.feathering / 2)
-
-        // 投影需要在绘制图片之前设置，并由外层 restoreGState 清除。
-        if layer.shadowOpacity > 0 {
-            context.setShadow(
-                offset: CGSize(width: 0, height: -(layer.shadowRadius / 3)),
-                blur: layer.shadowRadius,
-                color: NSColor.black.withAlphaComponent(layer.shadowOpacity).cgColor
-            )
-        }
-
-        // 裁剪到图层边界；feathering 在 CGPDFExporter 中用增大圆角半径近似。
-        let clipPath = CGPath(
+        let roundedPath = CGPath(
             roundedRect: drawRect,
             cornerWidth: effectiveCornerRadius,
             cornerHeight: effectiveCornerRadius,
             transform: nil
         )
-        context.addPath(clipPath)
+
+        // SwiftUI 的 shadow 在 mask/border 之后作用于整个相框。
+        // CGContext 里先给相框形状画一次透明度很低的填充以生成同方向投影。
+        if layer.shadowOpacity > 0 {
+            context.saveGState()
+            context.setShadow(
+                offset: CGSize(width: 0, height: layer.shadowRadius / 3),
+                blur: layer.shadowRadius,
+                color: NSColor.black.withAlphaComponent(layer.shadowOpacity).cgColor
+            )
+            context.setFillColor(NSColor.white.cgColor)
+            context.addPath(roundedPath)
+            context.fillPath()
+            context.restoreGState()
+        }
+
+        // 裁剪到图层边界；feathering 在 CGPDFExporter 中用增大圆角半径近似。
+        context.addPath(roundedPath)
         context.clip()
 
-        // 应用裁剪变换
+        // 应用裁剪变换。坐标系已经是Y-down，所以cropOffset.height不再取反。
         context.saveGState()
-        context.translateBy(x: layer.cropOffset.width, y: -layer.cropOffset.height)
+        context.translateBy(x: layer.cropOffset.width, y: layer.cropOffset.height)
         context.scaleBy(x: layer.cropScale, y: layer.cropScale)
         context.rotate(by: layer.cropRotation * .pi / 180)
 
-        // 计算图片绘制尺寸（保持宽高比，填充frame）
         let imageSize = image.size
         let imageAspect = imageSize.width / imageSize.height
         let frameAspect = frame.width / frame.height
 
-        var imageDrawRect = drawRect
+        let imageDrawRect: CGRect
         if imageAspect > frameAspect {
-            // 图片更宽，按高度缩放
             let scaledWidth = frame.height * imageAspect
             imageDrawRect = CGRect(
                 x: -(scaledWidth / 2),
@@ -307,7 +333,6 @@ public class CGPDFExporter {
                 height: frame.height
             )
         } else {
-            // 图片更高，按宽度缩放
             let scaledHeight = frame.width / imageAspect
             imageDrawRect = CGRect(
                 x: -frame.width / 2,
@@ -317,7 +342,7 @@ public class CGPDFExporter {
             )
         }
 
-        context.draw(cgImage, in: imageDrawRect)
+        drawCGImageUpright(cgImage, in: imageDrawRect, context: context)
         context.restoreGState()
 
         // 绘制边框。边框本身不应继承照片投影。
@@ -329,13 +354,7 @@ public class CGPDFExporter {
 
             switch layer.borderStyle {
             case .double:
-                let outerPath = CGPath(
-                    roundedRect: drawRect,
-                    cornerWidth: effectiveCornerRadius,
-                    cornerHeight: effectiveCornerRadius,
-                    transform: nil
-                )
-                context.addPath(outerPath)
+                context.addPath(roundedPath)
                 context.strokePath()
 
                 let innerRect = drawRect.insetBy(dx: 4, dy: 4)
@@ -352,24 +371,12 @@ public class CGPDFExporter {
 
             case .dashed:
                 context.setLineDash(phase: 0, lengths: [6, 3])
-                let path = CGPath(
-                    roundedRect: drawRect,
-                    cornerWidth: effectiveCornerRadius,
-                    cornerHeight: effectiveCornerRadius,
-                    transform: nil
-                )
-                context.addPath(path)
+                context.addPath(roundedPath)
                 context.strokePath()
 
             default:
                 // solid, dotted, and stamp use a solid fallback in this exporter for now.
-                let path = CGPath(
-                    roundedRect: drawRect,
-                    cornerWidth: effectiveCornerRadius,
-                    cornerHeight: effectiveCornerRadius,
-                    transform: nil
-                )
-                context.addPath(path)
+                context.addPath(roundedPath)
                 context.strokePath()
             }
 
@@ -381,12 +388,11 @@ public class CGPDFExporter {
 
     private static func drawTextLayer(_ layer: TextLayer, in context: CGContext, pageHeight: CGFloat) {
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
         context.saveGState()
 
-        // 移动到图层位置
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
+        // exportBook 已经把PDF坐标系翻成Y-down，直接使用SwiftUI/PageModel坐标。
+        context.translateBy(x: frame.midX, y: frame.midY)
         context.rotate(by: layer.rotation * .pi / 180)
 
         // 绘制背景
@@ -423,38 +429,109 @@ public class CGPDFExporter {
 
         let attributedString = NSAttributedString(string: layer.text, attributes: attributes)
         let textRect = CGRect(x: -frame.width / 2, y: -frame.height / 2, width: frame.width, height: frame.height)
+        drawAttributedString(attributedString, in: textRect, context: context)
 
-        // Core Graphics文本需要再次翻转
-        context.saveGState()
-        context.translateBy(x: 0, y: frame.height / 2)
-        context.scaleBy(x: 1.0, y: -1.0)
-        context.translateBy(x: 0, y: -frame.height / 2)
-
-        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = nsContext
-        attributedString.draw(in: textRect)
-        NSGraphicsContext.restoreGraphicsState()
-
-        context.restoreGState()
         context.restoreGState()
     }
 
     private static func drawStickerLayer(_ layer: StickerLayer, in context: CGContext, pageHeight: CGFloat) {
-        // 简化实现：只处理URL类型的贴纸
-        guard case .url(let url) = layer.content else { return }
-        guard let image = NSImage(contentsOf: url) else { return }
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
         context.saveGState()
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
+        context.translateBy(x: frame.midX, y: frame.midY)
         context.rotate(by: layer.rotation * .pi / 180)
 
         let drawRect = CGRect(x: -frame.width / 2, y: -frame.height / 2, width: frame.width, height: frame.height)
-        context.draw(cgImage, in: drawRect)
+
+        if layer.shadowOpacity > 0 {
+            context.setShadow(
+                offset: CGSize(width: 0, height: layer.shadowRadius / 3),
+                blur: layer.shadowRadius,
+                color: NSColor.black.withAlphaComponent(layer.shadowOpacity).cgColor
+            )
+        }
+
+        switch layer.content {
+        case .url(let url):
+            if let image = NSImage(contentsOf: url),
+               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                let fitRect = aspectFitRect(imageSize: image.size, in: drawRect)
+                drawCGImageUpright(cgImage, in: fitRect, context: context)
+            }
+
+        case .systemImage(let name):
+            if let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
+                let configured = symbol.withSymbolConfiguration(
+                    NSImage.SymbolConfiguration(pointSize: min(frame.width, frame.height), weight: .regular)
+                ) ?? symbol
+                if let cgImage = configured.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                    let fitRect = aspectFitRect(imageSize: configured.size, in: drawRect)
+                    drawCGImageUpright(cgImage, in: fitRect, context: context)
+                }
+            }
+
+        case .emoji(let char):
+            let fontSize = min(frame.width, frame.height) * 0.8
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .center
+            let attributedString = NSAttributedString(
+                string: char,
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: fontSize),
+                    .foregroundColor: NSColor(hex: layer.colorHex ?? "#000000"),
+                    .paragraphStyle: paragraphStyle
+                ]
+            )
+            drawAttributedString(attributedString, in: drawRect, context: context)
+        }
+
+        context.restoreGState()
+    }
+
+    private static func aspectFitRect(imageSize: CGSize, in rect: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+
+        let imageRatio = imageSize.width / imageSize.height
+        let rectRatio = rect.width / rect.height
+
+        if imageRatio > rectRatio {
+            let height = rect.width / imageRatio
+            return CGRect(
+                x: rect.minX,
+                y: rect.minY + (rect.height - height) / 2,
+                width: rect.width,
+                height: height
+            )
+        } else {
+            let width = rect.height * imageRatio
+            return CGRect(
+                x: rect.minX + (rect.width - width) / 2,
+                y: rect.minY,
+                width: width,
+                height: rect.height
+            )
+        }
+    }
+
+    private static func drawCGImageUpright(_ image: CGImage, in rect: CGRect, context: CGContext) {
+        context.saveGState()
+        context.translateBy(x: rect.minX, y: rect.maxY)
+        context.scaleBy(x: 1, y: -1)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: rect.width, height: rect.height))
+        context.restoreGState()
+    }
+
+    private static func drawAttributedString(_ string: NSAttributedString, in rect: CGRect, context: CGContext) {
+        context.saveGState()
+        context.translateBy(x: 0, y: rect.midY * 2)
+        context.scaleBy(x: 1.0, y: -1.0)
+
+        let flippedRect = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height)
+        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+        string.draw(in: flippedRect)
+        NSGraphicsContext.restoreGraphicsState()
 
         context.restoreGState()
     }
@@ -525,6 +602,113 @@ public class CGPDFExporter {
         context.strokePath()
 
         context.restoreGState()
+    }
+
+    private static func drawRegistrationMarks(in context: CGContext, trimBox: CGRect, mediaBox: CGRect) {
+        let offsetX = (mediaBox.width - trimBox.width) / 2
+        let offsetY = (mediaBox.height - trimBox.height) / 2
+        let size: CGFloat = 10
+
+        let centers = [
+            CGPoint(x: offsetX + trimBox.width / 2, y: offsetY / 2),
+            CGPoint(x: offsetX + trimBox.width / 2, y: mediaBox.height - offsetY / 2),
+            CGPoint(x: offsetX / 2, y: offsetY + trimBox.height / 2),
+            CGPoint(x: mediaBox.width - offsetX / 2, y: offsetY + trimBox.height / 2)
+        ]
+
+        context.saveGState()
+        context.setStrokeColor(NSColor.black.cgColor)
+        context.setLineWidth(0.5)
+
+        for center in centers {
+            let outerRect = CGRect(x: center.x - size / 2, y: center.y - size / 2, width: size, height: size)
+            let innerRect = outerRect.insetBy(dx: size * 0.3, dy: size * 0.3)
+
+            context.strokeEllipse(in: outerRect)
+            context.strokeEllipse(in: innerRect)
+
+            context.move(to: CGPoint(x: center.x - size / 2, y: center.y))
+            context.addLine(to: CGPoint(x: center.x + size / 2, y: center.y))
+            context.strokePath()
+
+            context.move(to: CGPoint(x: center.x, y: center.y - size / 2))
+            context.addLine(to: CGPoint(x: center.x, y: center.y + size / 2))
+            context.strokePath()
+        }
+
+        context.restoreGState()
+    }
+
+    private static func drawColorBars(
+        in context: CGContext,
+        trimBox: CGRect,
+        mediaBox: CGRect,
+        config: PDFExportConfig
+    ) {
+        let offsetX = (mediaBox.width - trimBox.width) / 2
+        let barWidth: CGFloat = 8
+        let barHeight: CGFloat = 16
+        let spacing: CGFloat = 1
+        let colors: [NSColor] = [
+            .cyan,
+            .magenta,
+            .yellow,
+            .black,
+            .red,
+            .green,
+            .blue,
+            NSColor(white: 0, alpha: 1),
+            NSColor(white: 0.25, alpha: 1),
+            NSColor(white: 0.5, alpha: 1),
+            NSColor(white: 0.75, alpha: 1),
+            .white
+        ]
+        let totalWidth = CGFloat(colors.count) * barWidth + CGFloat(colors.count - 1) * spacing
+        let startX = offsetX + trimBox.width / 2 - totalWidth / 2
+        let topY = max(2, config.printMarksMargin / 2 - barHeight / 2)
+        let bottomY = mediaBox.height - config.printMarksMargin / 2 - barHeight / 2
+
+        func drawBar(y: CGFloat) {
+            for (index, color) in colors.enumerated() {
+                let x = startX + CGFloat(index) * (barWidth + spacing)
+                let rect = CGRect(x: x, y: y, width: barWidth, height: barHeight)
+                context.setFillColor(color.cgColor)
+                context.fill(rect)
+                context.setStrokeColor(NSColor.black.cgColor)
+                context.setLineWidth(0.25)
+                context.stroke(rect)
+            }
+        }
+
+        context.saveGState()
+        drawBar(y: topY)
+        drawBar(y: bottomY)
+        context.restoreGState()
+    }
+
+    private static func drawPageInfo(
+        in context: CGContext,
+        mediaBox: CGRect,
+        config: PDFExportConfig,
+        pageNumber: Int,
+        totalPages: Int
+    ) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let dateString = dateFormatter.string(from: Date())
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .left
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 6),
+            .foregroundColor: NSColor.gray,
+            .paragraphStyle: paragraphStyle
+        ]
+
+        let text = "Page \(pageNumber) of \(totalPages)    Exported: \(dateString) • \(Int(config.dpi)) DPI"
+        let attributedString = NSAttributedString(string: text, attributes: attributes)
+        let rect = CGRect(x: config.printMarksMargin + 10, y: mediaBox.height - 14, width: mediaBox.width - (config.printMarksMargin + 10) * 2, height: 10)
+        drawAttributedString(attributedString, in: rect, context: context)
     }
 
     enum ExportError: LocalizedError {
