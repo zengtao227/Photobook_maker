@@ -247,12 +247,11 @@ public class CGPDFExporter {
 
         context.saveGState()
 
-        // 转换坐标：SwiftUI使用左上角原点，Core Graphics使用左下角原点
+        // 全局 Y-flip 已在 exportBook 中完成（translateBy + scaleBy），
+        // 坐标系已变为 Y-down（与 SwiftUI 相同），直接使用 frame 坐标。
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
-        // 移动到图层位置
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
+        context.translateBy(x: frame.midX, y: frame.midY)
 
         // 应用旋转
         context.rotate(by: layer.rotation * .pi / 180)
@@ -287,7 +286,7 @@ public class CGPDFExporter {
 
         // 应用裁剪变换
         context.saveGState()
-        context.translateBy(x: layer.cropOffset.width, y: -layer.cropOffset.height)
+        context.translateBy(x: layer.cropOffset.width, y: layer.cropOffset.height)
         context.scaleBy(x: layer.cropScale, y: layer.cropScale)
         context.rotate(by: layer.cropRotation * .pi / 180)
 
@@ -381,12 +380,10 @@ public class CGPDFExporter {
 
     private static func drawTextLayer(_ layer: TextLayer, in context: CGContext, pageHeight: CGFloat) {
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
         context.saveGState()
 
-        // 移动到图层位置
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
+        context.translateBy(x: frame.midX, y: frame.midY)
         context.rotate(by: layer.rotation * .pi / 180)
 
         // 绘制背景
@@ -441,20 +438,51 @@ public class CGPDFExporter {
     }
 
     private static func drawStickerLayer(_ layer: StickerLayer, in context: CGContext, pageHeight: CGFloat) {
-        // 简化实现：只处理URL类型的贴纸
-        guard case .url(let url) = layer.content else { return }
-        guard let image = NSImage(contentsOf: url) else { return }
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-
         let frame = layer.frame
-        let yFlipped = pageHeight - frame.maxY
 
         context.saveGState()
-        context.translateBy(x: frame.midX, y: yFlipped + frame.height / 2)
+        context.translateBy(x: frame.midX, y: frame.midY)
         context.rotate(by: layer.rotation * .pi / 180)
 
         let drawRect = CGRect(x: -frame.width / 2, y: -frame.height / 2, width: frame.width, height: frame.height)
-        context.draw(cgImage, in: drawRect)
+
+        switch layer.content {
+        case .url(let url):
+            guard let image = NSImage(contentsOf: url),
+                  let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                context.restoreGState()
+                return
+            }
+            context.draw(cgImage, in: drawRect)
+
+        case .systemImage(let name):
+            let config = NSImage.SymbolConfiguration(pointSize: min(frame.width, frame.height) * 0.8, weight: .regular)
+            guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+                    .withSymbolConfiguration(config),
+                  let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                context.restoreGState()
+                return
+            }
+            let color = layer.colorHex.map { NSColor(hex: $0) } ?? NSColor.black
+            context.setFillColor(color.cgColor)
+            context.draw(cgImage, in: drawRect)
+
+        case .emoji(let char):
+            let font = NSFont.systemFont(ofSize: min(frame.width, frame.height) * 0.8)
+            let attrs: [NSAttributedString.Key: Any] = [.font: font]
+            let str = NSAttributedString(string: char, attributes: attrs)
+            let nsCtx = NSGraphicsContext(cgContext: context, flipped: false)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = nsCtx
+            // flip for AppKit drawing in Y-down context
+            context.saveGState()
+            context.translateBy(x: 0, y: frame.height / 2)
+            context.scaleBy(x: 1, y: -1)
+            context.translateBy(x: 0, y: -frame.height / 2)
+            str.draw(in: drawRect)
+            context.restoreGState()
+            NSGraphicsContext.restoreGraphicsState()
+        }
 
         context.restoreGState()
     }
